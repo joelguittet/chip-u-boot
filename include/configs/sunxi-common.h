@@ -337,8 +337,14 @@ extern int soft_i2c_gpio_scl;
 #define CONFIG_USB_GADGET_VBUS_DRAW	0
 
 #define CONFIG_USB_GADGET_DOWNLOAD
+#define CONFIG_USB_ETHER
 #define CONFIG_USB_FUNCTION_FASTBOOT
 #define CONFIG_USB_FUNCTION_MASS_STORAGE
+#endif
+
+#ifdef CONFIG_USB_ETHER
+#define CONFIG_USB_ETH_RNDIS
+#define CONFIG_USBNET_HOST_ADDR		"de:ad:be:af:00:00"
 #endif
 
 #ifdef CONFIG_USB_GADGET_DOWNLOAD
@@ -467,6 +473,7 @@ extern int soft_i2c_gpio_scl;
 	MEM_LAYOUT_ENV_SETTINGS \
 	"fdtfile=" CONFIG_DEFAULT_DEVICE_TREE ".dtb\0" \
 	"console=ttyS0,115200\0" \
+	"usbnet_devaddr=de:ad:be:af:00:01\0" \
 	BOOTENV
 
 #else /* ifndef CONFIG_SPL_BUILD */
