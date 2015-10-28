@@ -140,6 +140,7 @@ endif
 
 ifdef CONFIG_SUNXI
 ALL-y	+= $(obj)/sunxi-spl.bin
+ALL-y	+= $(obj)/sunxi-spl-with-ecc.bin
 endif
 
 ifeq ($(CONFIG_SYS_SOC),"at91")
@@ -217,6 +218,12 @@ quiet_cmd_mksunxiboot = MKSUNXI $@
 cmd_mksunxiboot = $(objtree)/tools/mksunxiboot $< $@
 $(obj)/sunxi-spl.bin: $(obj)/$(SPL_BIN).bin
 	$(call if_changed,mksunxiboot)
+
+quiet_cmd_sunxi_spl_image_builder = SUNXI_SPL_IMAGE_BUILDER $@
+cmd_sunxi_spl_image_builder = $(objtree)/tools/sunxi-spl-image-builder \
+				-s 64 -c 1024 -p 16384 -o 1664 -r 3 -u 4096 -d $< $@
+$(obj)/sunxi-spl-with-ecc.bin: $(obj)/sunxi-spl.bin
+	$(call if_changed,sunxi_spl_image_builder)
 endif
 
 quiet_cmd_u-boot-spl = LD      $@

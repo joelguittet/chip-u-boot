@@ -4,3 +4,5 @@ ifndef CONFIG_SPL_BUILD
 ALL-y += u-boot-sunxi-with-spl.bin
 endif
 endif
+
+ALL-y += u-boot-sunxi-padded.bin
