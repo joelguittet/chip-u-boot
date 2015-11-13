@@ -387,6 +387,11 @@ extern int soft_i2c_gpio_scl;
 #define CONFIG_FASTBOOT_FLASH_MMC_DEV	0
 #define CONFIG_EFI_PARTITION
 #endif
+
+#ifdef CONFIG_MTD_PARTITIONS
+#define CONFIG_FASTBOOT_FLASH_NAND_DEV
+#define CONFIG_FASTBOOT_FLASH_NAND_TRIMFFS
+#endif
 #endif
 
 #ifdef CONFIG_USB_FUNCTION_MASS_STORAGE
@@ -497,6 +502,8 @@ extern int soft_i2c_gpio_scl;
 	"fdtfile=" CONFIG_DEFAULT_DEVICE_TREE ".dtb\0" \
 	"console=ttyS0,115200\0" \
 	"usbnet_devaddr=de:ad:be:af:00:01\0" \
+	"mtdids=nand0=sunxi-nand.0\0" \
+	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),-(UBI)\0" \
 	BOOTENV
 
 #else /* ifndef CONFIG_SPL_BUILD */
