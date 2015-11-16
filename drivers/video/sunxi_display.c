@@ -1449,8 +1449,6 @@ void *video_hw_init(void)
 	/* Yes these defaults are quite high, overscan on composite sucks... */
 	if (overscan_x == -1)
 		overscan_x = sunxi_is_composite() ? 32 : 0;
-	if (overscan_y == -1)
-		overscan_y = sunxi_is_composite() ? 20 : 0;
 
 	sunxi_display.fb_size =
 		(mode->xres * mode->yres * 4 + 0xfff) & ~0xfff;
