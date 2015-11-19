@@ -137,7 +137,25 @@
 
 #ifdef CONFIG_NAND_SUNXI
 #define CONFIG_SPL_NAND_SUPPORT 1
-#endif
+#define CONFIG_SYS_NAND_ONFI_DETECTION
+#define CONFIG_SYS_MAX_NAND_DEVICE 8
+
+/* Requirements for UBI */
+#define CONFIG_RBTREE
+#define CONFIG_LZO
+#define CONFIG_CMD_MTDPARTS
+#define CONFIG_CMD_UBI
+#define CONFIG_CMD_UBIFS
+#define CONFIG_MTD_DEVICE
+
+#define CONFIG_MTD_PARTITIONS
+/*
+#define CONFIG_MTD_DEBUG
+#define CONFIG_MTD_DEBUG_VERBOSE		MTD_DEBUG_LEVEL3
+*/
+#define CONFIG_CMD_NAND_TRIMFFS
+
+#endif /* CONFIG_NAND_SUNXI */
 
 /* mmc config */
 #if defined(CONFIG_MMC)
@@ -145,7 +163,14 @@
 #define CONFIG_CMD_MMC
 #define CONFIG_MMC_SUNXI
 #define CONFIG_MMC_SUNXI_SLOT		0
-#define CONFIG_ENV_IS_IN_MMC
+#endif
+
+#if defined(CONFIG_ENV_IS_IN_NAND)
+#define CONFIG_ENV_OFFSET			0xc00000
+#define CONFIG_ENV_SIZE				0x400000
+#elif defined(CONFIG_ENV_IS_IN_MMC)
+#define CONFIG_ENV_OFFSET			(544 << 10) /* (8 + 24 + 512) KiB */
+#define CONFIG_ENV_SIZE				(128 << 10) /* 128 KiB */
 #define CONFIG_SYS_MMC_ENV_DEV		0	/* first detected MMC controller */
 #endif
 
@@ -178,9 +203,6 @@
 
 #define CONFIG_SYS_MONITOR_LEN		(768 << 10)	/* 768 KiB */
 #define CONFIG_IDENT_STRING		" Allwinner Technology"
-
-#define CONFIG_ENV_OFFSET		(544 << 10) /* (8 + 24 + 512) KiB */
-#define CONFIG_ENV_SIZE			(128 << 10)	/* 128 KiB */
 
 #define CONFIG_FAT_WRITE	/* enable write access */
 
@@ -357,12 +379,18 @@ extern int soft_i2c_gpio_scl;
 #define CONFIG_CMD_FASTBOOT
 #define CONFIG_FASTBOOT_BUF_ADDR	CONFIG_SYS_LOAD_ADDR
 #define CONFIG_FASTBOOT_BUF_SIZE	0x2000000
+#define CONFIG_ANDROID_BOOT_IMAGE
 
 #define CONFIG_FASTBOOT_FLASH
 
 #ifdef CONFIG_MMC
 #define CONFIG_FASTBOOT_FLASH_MMC_DEV	0
 #define CONFIG_EFI_PARTITION
+#endif
+
+#ifdef CONFIG_MTD_PARTITIONS
+#define CONFIG_FASTBOOT_FLASH_NAND_DEV
+#define CONFIG_FASTBOOT_FLASH_NAND_TRIMFFS
 #endif
 #endif
 
@@ -428,9 +456,9 @@ extern int soft_i2c_gpio_scl;
 /* FEL boot support, auto-execute boot.scr if a script address was provided */
 #define BOOTENV_DEV_FEL(devtypeu, devtypel, instance) \
 	"bootcmd_fel=" \
-		"if test -n ${fel_booted} && test -n ${fel_scriptaddr}; then " \
+		"if test -n ${fel_booted} && test -n ${scriptaddr}; then " \
 			"echo '(FEL boot)'; " \
-			"source ${fel_scriptaddr}; " \
+			"source ${scriptaddr}; " \
 		"fi\0"
 #define BOOTENV_DEV_NAME_FEL(devtypeu, devtypel, instance) \
 	"fel "
@@ -474,6 +502,8 @@ extern int soft_i2c_gpio_scl;
 	"fdtfile=" CONFIG_DEFAULT_DEVICE_TREE ".dtb\0" \
 	"console=ttyS0,115200\0" \
 	"usbnet_devaddr=de:ad:be:af:00:01\0" \
+	"mtdids=nand0=sunxi-nand.0\0" \
+	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),-(UBI)\0" \
 	BOOTENV
 
 #else /* ifndef CONFIG_SPL_BUILD */
