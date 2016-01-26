@@ -12,6 +12,12 @@ config W1
 
 if W1
 
+config W1_GPIO
+	bool "Enable 1-Wire GPIO bitbanging"
+	depends on DM_GPIO
+	help
+	  Emulate a 1-Wire bus using a GPIO.
+
 endif
 
 endmenu
