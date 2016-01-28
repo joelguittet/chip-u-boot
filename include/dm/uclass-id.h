@@ -68,6 +68,7 @@ enum uclass_id {
 	UCLASS_USB_HUB,		/* USB hub */
 	UCLASS_VIDEO_BRIDGE,	/* Video bridge, e.g. DisplayPort to LVDS */
 	UCLASS_W1,		/* Dallas 1-Wire bus */
+	UCLASS_EEPROM,		/* EEPROM */
 
 	UCLASS_COUNT,
 	UCLASS_INVALID = -1,
