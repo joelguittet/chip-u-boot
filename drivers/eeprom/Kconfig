@@ -12,6 +12,12 @@ config EEPROM
 
 if EEPROM
 
+config EEPROM_DS2431
+	bool "Enable Maxim DS2431 EEPROM support"
+	depends on W1
+	help
+	  Maxim DS2431 1-Wire EEPROM support
+
 endif
 
 endmenu
