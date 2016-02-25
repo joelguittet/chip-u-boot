@@ -593,6 +593,11 @@ int misc_init_r(void)
 int ft_board_setup(void *blob, bd_t *bd)
 {
 	int ret = 0;
+#ifdef CONFIG_CHIP_DIP
+	ret = chip_dip_dt_setup(blob);
+	if (ret)
+		return ret;
+#endif
 #ifdef CONFIG_VIDEO_DT_SIMPLEFB
 	ret = sunxi_simplefb_setup(blob);
 	if (ret)

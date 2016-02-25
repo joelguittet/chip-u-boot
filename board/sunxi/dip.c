@@ -43,6 +43,8 @@ struct dip_header {
 	u8      data[16];               /* user data, per-dip specific */
 } __packed;
 
+static char dip_name[64];
+
 static void dip_setup_pocket_display(bool lcd)
 {
 	char *env_var;
@@ -93,6 +95,8 @@ static void dip_detect(void)
 		       header.product_name, pid,
 		       header.vendor_name, vid);
 
+		snprintf(dip_name, 64, "dip-%x-%x.dtbo", vid, pid);
+
 		if (vid == DIP_VID_NTC && pid == DIP_PID_NTC_POCKET)
 			lcd = true;
 	}
@@ -105,4 +109,21 @@ int board_video_pre_init(void)
 	dip_detect();
 
 	return 0;
+}
+
+int chip_dip_dt_setup(void)
+{
+	int ret;
+	char *cmd;
+
+	cmd = getenv("dip_overlay_cmd");
+	if (!cmd)
+		return 0;
+
+	setenv("dip_overlay_name", dip_name);
+	ret = run_command(cmd, 0);
+	if (ret)
+		return 0;
+
+	return run_command("fdt apply $dip_addr_r", 0);
 }
