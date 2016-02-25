@@ -592,8 +592,12 @@ int misc_init_r(void)
 #ifdef CONFIG_OF_BOARD_SETUP
 int ft_board_setup(void *blob, bd_t *bd)
 {
+	int ret = 0;
 #ifdef CONFIG_VIDEO_DT_SIMPLEFB
-	return sunxi_simplefb_setup(blob);
+	ret = sunxi_simplefb_setup(blob);
+	if (ret)
+		return ret;
 #endif
+	return ret;
 }
 #endif /* CONFIG_OF_BOARD_SETUP */
