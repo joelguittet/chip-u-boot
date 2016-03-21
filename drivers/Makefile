@@ -41,6 +41,7 @@ obj-y += block/
 obj-$(CONFIG_BOOTCOUNT_LIMIT) += bootcount/
 obj-$(CONFIG_CPU) += cpu/
 obj-y += crypto/
+obj-y += eeprom/
 obj-$(CONFIG_FPGA) += fpga/
 obj-y += hwmon/
 obj-y += misc/
@@ -60,5 +61,6 @@ obj-y += input/
 # SOC specific infrastructure drivers.
 obj-y += soc/
 obj-y += thermal/
+obj-y += w1/
 
 endif

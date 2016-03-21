@@ -18,6 +18,8 @@ source "drivers/dfu/Kconfig"
 
 source "drivers/dma/Kconfig"
 
+source "drivers/eeprom/Kconfig"
+
 source "drivers/gpio/Kconfig"
 
 source "drivers/hwmon/Kconfig"
@@ -61,6 +63,8 @@ source "drivers/tpm/Kconfig"
 source "drivers/usb/Kconfig"
 
 source "drivers/video/Kconfig"
+
+source "drivers/w1/Kconfig"
 
 source "drivers/watchdog/Kconfig"
 
