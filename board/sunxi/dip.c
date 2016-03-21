@@ -28,9 +28,9 @@
 
 #define DIP_MAGIC	0x50494843	/* CHIP */
 
-#define DIP_VID_FE	0x42
+#define DIP_VID_FE	0x9d011a
 
-#define DIP_PID_FE_POCKET_TEST	0x42
+#define DIP_PID_FE_POCKET_TEST	0x1
 
 struct cape_header {
 	u32     magic;                  /* CHIP */
