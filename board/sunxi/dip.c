@@ -43,16 +43,26 @@ struct dip_header {
 	u8      data[16];               /* user data, per-dip specific */
 } __packed;
 
+enum disp_output {
+	DISPLAY_COMPOSITE,
+	DISPLAY_RGB_POCKET,
+};
+
 static char dip_name[64];
 
-static void dip_setup_pocket_display(bool lcd)
+static void dip_setup_pocket_display(enum disp_output display)
 {
 	char *env_var;
 
-	if (lcd)
+	switch (display) {
+	case DISPLAY_RGB_POCKET:
 		env_var = "sunxi:480x272-16@60,monitor=lcd";
-	else
+		break;
+
+	default:
 		env_var = "sunxi:720x480-24@60,monitor=composite-ntsc,overscan_x=40,overscan_y=20";
+		break;
+	}
 
 	setenv("video-mode", env_var);
 }
@@ -60,7 +70,7 @@ static void dip_setup_pocket_display(bool lcd)
 static void dip_detect(void)
 {
 	struct udevice *bus, *dev;
-	bool lcd = false;
+	u8 display = DISPLAY_COMPOSITE;
 	u32 vid;
 	u16 pid;
 	int ret;
@@ -97,11 +107,16 @@ static void dip_detect(void)
 
 		snprintf(dip_name, 64, "dip-%x-%x.dtbo", vid, pid);
 
-		if (vid == DIP_VID_NTC && pid == DIP_PID_NTC_POCKET)
-			lcd = true;
+		if (vid == DIP_VID_NTC) {
+			switch (pid) {
+			case DIP_PID_NTC_POCKET:
+				display = DISPLAY_RGB_POCKET;
+				break;
+			}
+		}
 	}
 
-	dip_setup_pocket_display(lcd);
+	dip_setup_pocket_display(display);
 }
 
 int board_video_pre_init(void)
