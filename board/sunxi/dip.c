@@ -30,6 +30,8 @@
 
 #define DIP_VID_NTC		0x9d011a
 #define DIP_PID_NTC_POCKET	0x1
+#define DIP_PID_NTC_VGA		0x2
+#define DIP_PID_NTC_HDMI	0x3
 
 struct dip_header {
 	u32     magic;                  /* CHIP */
@@ -45,6 +47,7 @@ struct dip_header {
 
 enum disp_output {
 	DISPLAY_COMPOSITE,
+	DISPLAY_RGB_BRIDGE,
 	DISPLAY_RGB_POCKET,
 };
 
@@ -55,6 +58,10 @@ static void dip_setup_pocket_display(enum disp_output display)
 	char *env_var;
 
 	switch (display) {
+	case DISPLAY_RGB_BRIDGE:
+		env_var = "sunxi:1024x768-24@60,monitor=vga";
+		break;
+
 	case DISPLAY_RGB_POCKET:
 		env_var = "sunxi:480x272-16@60,monitor=lcd";
 		break;
@@ -111,6 +118,11 @@ static void dip_detect(void)
 			switch (pid) {
 			case DIP_PID_NTC_POCKET:
 				display = DISPLAY_RGB_POCKET;
+				break;
+
+			case DIP_PID_NTC_HDMI:
+			case DIP_PID_NTC_VGA:
+				display = DISPLAY_RGB_BRIDGE;
 				break;
 			}
 		}
