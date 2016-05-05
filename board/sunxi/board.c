@@ -21,6 +21,7 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/mmc.h>
 #include <asm/arch/usb_phy.h>
+#include <asm/arch-sunxi/pmic_bus.h>
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <nand.h>
@@ -436,10 +437,35 @@ void sunxi_board_init(void)
 {
 	int power_failed = 0;
 	unsigned long ramsize;
+  int rc;
+  u8  val;
 
 #if defined CONFIG_AXP152_POWER || defined CONFIG_AXP209_POWER || \
 	defined CONFIG_AXP221_POWER || defined CONFIG_AXP818_POWER
 	power_failed = axp_init();
+
+#ifdef CONFIG_AXP209_POWER
+  // power down immediately if powered on by pluging in to micro usb
+  rc = pmic_bus_read(AXP209_POWER_STATUS, &val);
+  if (rc) {
+     printf("ERROR cannot read from AXP209!\n");
+  } else {
+    if(val&0x1) {
+       printf("started by pluging in -> powering down again\n");
+       rc=pmic_bus_read(AXP209_SHUTDOWN, &val);
+
+       if(rc) {
+         printf("ERROR cannot read from AXP209!\n");
+       }
+
+       val |= 128;
+       rc = pmic_bus_write(AXP209_SHUTDOWN, val);
+       if(rc) {
+         printf("ERROR cannot write to AXP209!\n");
+       }
+    }
+  }
+#endif // CONFIG_AXP209_POWER
 
 #if defined CONFIG_AXP221_POWER || defined CONFIG_AXP818_POWER
 	power_failed |= axp_set_dcdc1(CONFIG_AXP_DCDC1_VOLT);
