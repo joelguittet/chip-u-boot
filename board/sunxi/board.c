@@ -446,7 +446,7 @@ void sunxi_board_init(void)
 
 #ifdef CONFIG_AXP209_POWER
   // power down immediately if powered on by pluging in to micro usb
-  int *sram_ver_reg = 0x01c00024;
+  unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
   printf("0x%08x\n", *sram_ver_reg);
 
   if( (*sram_ver_reg) & 0x0100) {
