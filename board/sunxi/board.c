@@ -446,29 +446,36 @@ void sunxi_board_init(void)
 
 #ifdef CONFIG_AXP209_POWER
   // power down immediately if powered on by pluging in to micro usb
-  rc = pmic_bus_read(AXP209_POWER_STATUS, &val);
-  if (rc) {
-     printf("ERROR cannot read from AXP209!\n");
-  } else {
-    if(val&0x1) {
-       rc=pmic_bus_read(AXP209_POWER_MODE, &val);
-       if ( val & 0x20 ) {
-         /* if there is a battery connected, shutdown */
-         printf("started by pluging in while battery connected"
-                " -> powering down again\n");
-         rc=pmic_bus_read(AXP209_SHUTDOWN, &val);
-    
-         if(rc) {
-           printf("ERROR cannot read from AXP209!\n");
+  int *sram_ver_reg = 0x01c00024;
+  printf("0x%08x\n", *sram_ver_reg);
+
+  if( (*sram_ver_reg) & 0x0100) {
+    rc = pmic_bus_read(AXP209_POWER_STATUS, &val);
+    if (rc) {
+       printf("ERROR cannot read from AXP209!\n");
+    } else {
+      if(val&0x1) {
+         rc=pmic_bus_read(AXP209_POWER_MODE, &val);
+         if ( val & 0x20 ) {
+           /* if there is a battery connected, shutdown */
+           printf("started by pluging in while battery connected"
+                  " -> powering down again\n");
+           rc=pmic_bus_read(AXP209_SHUTDOWN, &val);
+      
+           if(rc) {
+             printf("ERROR cannot read from AXP209!\n");
+           }
+      
+           val |= 128;
+           rc = pmic_bus_write(AXP209_SHUTDOWN, val);
+           if(rc) {
+             printf("ERROR cannot write to AXP209!\n");
+           }
          }
-    
-         val |= 128;
-         rc = pmic_bus_write(AXP209_SHUTDOWN, val);
-         if(rc) {
-           printf("ERROR cannot write to AXP209!\n");
-         }
-       }
+      }
     }
+  } else {
+    printf("fel jumper set!\n");
   }
 #endif // CONFIG_AXP209_POWER
 
