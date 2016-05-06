@@ -451,17 +451,22 @@ void sunxi_board_init(void)
      printf("ERROR cannot read from AXP209!\n");
   } else {
     if(val&0x1) {
-       printf("started by pluging in -> powering down again\n");
-       rc=pmic_bus_read(AXP209_SHUTDOWN, &val);
-
-       if(rc) {
-         printf("ERROR cannot read from AXP209!\n");
-       }
-
-       val |= 128;
-       rc = pmic_bus_write(AXP209_SHUTDOWN, val);
-       if(rc) {
-         printf("ERROR cannot write to AXP209!\n");
+       rc=pmic_bus_read(AXP209_POWER_MODE, &val);
+       if ( val & 0x20 ) {
+         /* if there is a battery connected, shutdown */
+         printf("started by pluging in while battery connected"
+                " -> powering down again\n");
+         rc=pmic_bus_read(AXP209_SHUTDOWN, &val);
+    
+         if(rc) {
+           printf("ERROR cannot read from AXP209!\n");
+         }
+    
+         val |= 128;
+         rc = pmic_bus_write(AXP209_SHUTDOWN, val);
+         if(rc) {
+           printf("ERROR cannot write to AXP209!\n");
+         }
        }
     }
   }
