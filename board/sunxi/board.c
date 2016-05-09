@@ -447,7 +447,7 @@ void sunxi_board_init(void)
   // power down immediately if powered on by pluging in to micro usb
   unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
 
-  if( ( (*sram_ver_reg) & 0x0100 ) != 0 ) { // fel jumper set
+  if( ( (*sram_ver_reg) & 0x0100 ) != 0 ) { // fel jumper not set
     rc = pmic_bus_read(AXP209_POWER_STATUS, &val);
     if (rc) {
        printf("ERROR cannot read from AXP209!\n");
