@@ -452,7 +452,7 @@ void sunxi_board_init(void)
     if (rc) {
        printf("ERROR cannot read from AXP209!\n");
     } else {
-      if( ! (val & 0x1) ) { // Cable not connected
+      if( val & 0x1 ) { // Cable not connected
         rc=pmic_bus_read(AXP209_POWER_MODE, &val);
         if ( val & 0x20 ) {
           /* if there is a battery connected, shutdown */
