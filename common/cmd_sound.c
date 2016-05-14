@@ -19,7 +19,7 @@ static int do_init(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 
 	ret = sound_init(gd->fdt_blob);
 	if (ret) {
-		printf("Initialise Audio driver failed\n");
+		printf("Initialization of Audio driver failed\n");
 		return CMD_RET_FAILURE;
 	}
 
@@ -40,7 +40,7 @@ static int do_play(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 
 	ret = sound_play(msec, freq);
 	if (ret) {
-		printf("play failed");
+		printf("Play failed\n");
 		return CMD_RET_FAILURE;
 	}
 

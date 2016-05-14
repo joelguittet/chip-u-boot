@@ -56,4 +56,12 @@ config SOUND_WM8994
 	  audio data and I2C for codec control. At present it only works
 	  with the Samsung I2S driver.
 
+config SOUND_SUNXI
+	bool"Support for Allwinner built-in codec"
+        depends on SOUND
+	help
+	  Enable the audio codec on All-winner processors. This is an 
+          on-die codec. At present it only works with the SUN4i codec.
+ 
+
 endmenu
