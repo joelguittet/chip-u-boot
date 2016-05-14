@@ -1,4 +1,7 @@
 /*
+ * Copyright (C) 2016 Next Thing Co.
+ * Jose Angel Torres <software@nextthing.co>
+ *
  * Copyright (C) 2012 Samsung Electronics
  * R. Chandrasekar <rcsekar@samsung.com>
  *
@@ -6,7 +9,23 @@
  */
 
 #include <common.h>
-#include <sound.h>
+#include <asm/sound.h>
+#ifdef CONFIG_SOUND_SUNXI
+#include "sunxi-codec.h"
+#endif
+
+int sound_play(unsigned int msec, unsigned int frequency)
+{
+	return -1;
+}
+
+int sound_init(const void *blob)
+{
+	#ifdef CONFIG_SOUND_SUNXI
+	return sunxi_codec_init(blob);
+	#endif
+	return 0;
+}
 
 void sound_create_square_wave(unsigned short *data, int size, uint32_t freq)
 {
