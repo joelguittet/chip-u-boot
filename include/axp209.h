@@ -1,5 +1,6 @@
 /*
- * (C) Copyright 2012 Henrik Nordstrom <henrik@henriknordstrom.net>
+ * (C) Copyright 2012
+ * Henrik Nordstrom <henrik@henriknordstrom.net>
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
@@ -19,6 +20,7 @@ enum axp209_reg {
 	AXP209_IRQ_ENABLE5 = 0x44,
 	AXP209_IRQ_STATUS5 = 0x4c,
 	AXP209_SHUTDOWN = 0x32,
+	AXP209_FUEL_GAUGE = 0xB9,
 };
 
 #define AXP209_POWER_STATUS_ON_BY_DC	(1 << 0)
@@ -35,6 +37,8 @@ enum axp209_reg {
 #define AXP209_IRQ5_PEK_DOWN		(1 << 5)
 
 #define AXP209_POWEROFF			(1 << 7)
+
+#define AXP209_FUEL_GAUGE_CTRL          0x00
 
 /* For axp_gpio.c */
 #define AXP_POWER_STATUS		0x00
