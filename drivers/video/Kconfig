@@ -159,6 +159,16 @@ config VIDEO_LCD_ANX9804
 	from a parallel LCD interface and translate it on the fy into a DP
 	interface for driving eDP TFT displays. It uses I2C for configuration.
 
+config VIDEO_CHRONTEL_CH7033
+	bool "Chrontel CH7033 bridge chip"
+	default n
+	---help---
+	Support for the RGB to HDMI CH7033 bridge chip
+
+config VIDEO_CHRONTEL_CH7033_I2C_BUS
+	int "Chrontel CH7033 i2c bus number"
+	default 0
+
 config VIDEO_LCD_SSD2828
 	bool "SSD2828 bridge chip"
 	default n
