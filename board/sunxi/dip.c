@@ -47,7 +47,8 @@ struct dip_header {
 
 enum disp_output {
 	DISPLAY_COMPOSITE,
-	DISPLAY_RGB_BRIDGE,
+	DISPLAY_RGB_HDMI_BRIDGE,
+	DISPLAY_RGB_VGA_BRIDGE,
 	DISPLAY_RGB_POCKET,
 };
 
@@ -58,7 +59,11 @@ static void dip_setup_pocket_display(enum disp_output display)
 	char *env_var;
 
 	switch (display) {
-	case DISPLAY_RGB_BRIDGE:
+	case DISPLAY_RGB_HDMI_BRIDGE:
+		env_var = "sunxi:1024x768-24@60,monitor=hdmi";
+		break;
+
+	case DISPLAY_RGB_VGA_BRIDGE:
 		env_var = "sunxi:1024x768-24@60,monitor=vga";
 		break;
 
@@ -122,12 +127,12 @@ static void dip_detect(void)
 
 			case DIP_PID_NTC_HDMI:
 				setenv("kernelarg_video", "video=HDMI-A-1:1024x768@60");
-				display = DISPLAY_RGB_BRIDGE;
+				display = DISPLAY_RGB_HDMI_BRIDGE;
 				break;
 
 			case DIP_PID_NTC_VGA:
 				setenv("kernelarg_video", "video=VGA-1:1024x768@60");
-				display = DISPLAY_RGB_BRIDGE;
+				display = DISPLAY_RGB_VGA_BRIDGE;
 				break;
 			}
 		}
