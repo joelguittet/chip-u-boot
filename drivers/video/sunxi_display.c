@@ -1210,6 +1210,12 @@ static void sunxi_mode_set(const struct ctfb_res_modes *mode,
 		sunxi_composer_enable();
 		sunxi_lcdc_enable();
 		sunxi_hdmi_enable();
+#elif defined CONFIG_VIDEO_CHRONTEL_CH7033
+		sunxi_composer_mode_set(mode, address);
+		sunxi_lcdc_tcon0_mode_set(mode, false);
+		sunxi_composer_enable();
+		sunxi_lcdc_enable();
+		ch7033_init(CONFIG_VIDEO_CHRONTEL_CH7033_I2C_BUS, mode);
 #endif
 		break;
 	case sunxi_monitor_lcd:
@@ -1299,7 +1305,7 @@ ulong board_get_usable_ram_top(ulong total_size)
 
 static bool sunxi_has_hdmi(void)
 {
-#ifdef CONFIG_VIDEO_HDMI
+#if defined CONFIG_VIDEO_HDMI || defined CONFIG_VIDEO_CHRONTEL_CH7033
 	return true;
 #else
 	return false;
@@ -1523,7 +1529,11 @@ int sunxi_simplefb_setup(void *blob)
 		return 0;
 	case sunxi_monitor_dvi:
 	case sunxi_monitor_hdmi:
+#ifdef CONFIG_VIDEO_HDMI
 		pipeline = PIPELINE_PREFIX "de_be0-lcd0-hdmi";
+#elif defined CONFIG_VIDEO_CHRONTEL_CH7033
+		pipeline = PIPELINE_PREFIX "de_be0-lcd0";
+#endif
 		break;
 	case sunxi_monitor_lcd:
 		pipeline = PIPELINE_PREFIX "de_be0-lcd0";
