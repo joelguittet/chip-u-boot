@@ -140,10 +140,39 @@ int axp_set_aldo4(unsigned int mvolt)
 	return pmic_bus_setbits(AXP209_OUTPUT_CTRL, AXP209_OUTPUT_CTRL_LDO4);
 }
 
-int axp_get_fuel_gauge()
+int axp_set_no_limit(void)
 {
-        int rc = 0, percent = 0;
+        int rc;
         u8 reg;
+        
+    	rc = pmic_bus_read(AXP209_VBUS_POWER_PATH, &reg);
+	if (rc)
+		return rc;    
+        
+        reg = reg | AXP209_VBUS_NO_LIMIT;
+        rc = pmic_bus_write(AXP209_VBUS_POWER_PATH, reg);
+        if (rc)
+		return rc;
+	
+	return 0;
+        
+}
+
+int axp_get_fuel_gauge(int * fuel_gauge)
+{
+        int rc, percent = 0;
+        bool battery_connected = false;
+        u8 reg;
+        
+        rc = axp_is_battery_connected(&battery_connected);
+        if (rc)
+                return rc;
+        
+        if (!battery_connected)
+        {
+                *fuel_gauge = 0;
+                return 0;
+        }
         
         rc = pmic_bus_read(AXP209_FUEL_GAUGE, &reg);
         if (rc)
@@ -152,7 +181,7 @@ int axp_get_fuel_gauge()
         if (reg & 0x80)
         {
                 printf("Fuel Gauge: Suspended\n");
-                return -1;
+                return 1;
         }
         
         if ((reg >= 0x00) & (reg <= 0x7F))
@@ -160,10 +189,87 @@ int axp_get_fuel_gauge()
                 percent = (((float)reg / 127) * 100);
         }
         
-        return percent;
+        *fuel_gauge = percent;
+        
+        return 0;
 }
 
+int axp_get_battery_voltage(u16 * voltage)
+{
+        int rc;
+	u8 MSB_REGISTER, LSB_REGISTER, LBIT_MASK;
+	u16 VALUE = 0;
+	
+	rc = pmic_bus_read(AXP209_BATTERY_VOLTAGE_HIGH, &MSB_REGISTER);
+        if (rc)
+                return rc;
+                
+	rc = pmic_bus_read(AXP209_BATTERY_VOLTAGE_LOW, &LSB_REGISTER);
+        if (rc)
+                return rc;
+                
+	LBIT_MASK=16;
+	VALUE=(MSB_REGISTER * LBIT_MASK) | ((LSB_REGISTER & 240) / LBIT_MASK);
+	
+	*voltage = VALUE;
+	
+	return 0;
+}
 
+int axp_is_battery_connected(bool *isconnected)
+{
+        int rc;
+        u16 val;
+        rc = axp_get_battery_voltage(&val);
+        if (rc) {
+                printf("ERROR cannot read from AXP209!\n");
+                return 1;
+        }
+        if (val >= 500) {
+                * isconnected = true;
+        }
+        else {
+                * isconnected = false;
+        }
+        
+        return 0;
+}
+
+int axp_is_powered(bool * ispowered)
+{
+        int rc;
+        u8 val;
+        rc=pmic_bus_read(AXP209_POWER_MODE, &val);
+        if (rc) {
+                printf("ERROR cannot read from AXP209!\n");
+                return 1;
+        }
+        if ( val & 0x20 ) {
+                *ispowered = true;
+        }
+        else {
+                * ispowered = false;
+        }
+        return 0;  
+}
+
+int axp_shutdown(void)
+{
+        int rc;
+        u8 val;
+        rc = pmic_bus_read(AXP209_SHUTDOWN, &val);
+      
+        if(rc) {
+                printf("ERROR cannot read from AXP209!\n");
+        }
+      
+        val |= 128;
+        rc = pmic_bus_write(AXP209_SHUTDOWN, val);
+        if(rc) {
+                printf("ERROR cannot write to AXP209!\n");
+        }
+        return rc;
+}
 
 int axp_init(void)
 {
