@@ -437,46 +437,61 @@ void sunxi_board_init(void)
 {
 	int power_failed = 0;
 	unsigned long ramsize;
-  int rc;
-  u8  val;
+	int rc;
+	bool powered = false, battery_connected = false;
 
 #if defined CONFIG_AXP152_POWER || defined CONFIG_AXP209_POWER || \
 	defined CONFIG_AXP221_POWER || defined CONFIG_AXP818_POWER
 	power_failed = axp_init();
 
 #ifdef CONFIG_AXP209_POWER
-  // power down immediately if powered on by pluging in to micro usb
-  unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
-  printf("0x%08x\n", *sram_ver_reg);
+	// power down immediately if powered on by pluging in to micro usb
+	unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
+	printf("0x%08x\n", *sram_ver_reg);
 
-  if( (*sram_ver_reg) & 0x0100) {
-    rc = pmic_bus_read(AXP209_POWER_STATUS, &val);
-    if (rc) {
-       printf("ERROR cannot read from AXP209!\n");
-    } else {
-      if(val&0x1) {
-         rc=pmic_bus_read(AXP209_POWER_MODE, &val);
-         if ( val & 0x20 ) {
-           /* if there is a battery connected, shutdown */
-           printf("started by pluging in while battery connected"
-                  " -> powering down again\n");
-           rc=pmic_bus_read(AXP209_SHUTDOWN, &val);
-      
-           if(rc) {
-             printf("ERROR cannot read from AXP209!\n");
-           }
-      
-           val |= 128;
-           rc = pmic_bus_write(AXP209_SHUTDOWN, val);
-           if(rc) {
-             printf("ERROR cannot write to AXP209!\n");
-           }
-         }
-      }
-    }
-  } else {
-    printf("fel jumper set!\n");
-  }
+	if( (*sram_ver_reg) & 0x0100) {
+		rc = axp_is_powered(&powered);
+		if (rc)
+			printf("Error determining Power-on Status");
+		if (powered) { // started by plugging in?
+			rc=axp_is_battery_connected(&battery_connected);
+			if (rc)
+				printf("Error determining if Battery is connected");
+			if ( battery_connected ) {
+				/* if there is a battery connected, shutdown */
+				printf("Started by plugging in while battery connected"
+				       " -> powering down again\n");
+				rc = axp_shutdown();
+				if (rc) {
+					printf("Error attempting to Shutdown!");
+					return;
+				}
+			}
+		}
+	} else {
+		printf("FEL Jumper Set!\n");
+	}
+
+	printf("Setting No Current Limit on VBUS!\n");
+	rc = axp_set_no_limit();
+	if (rc)
+		printf("Error setting No Limit!");
+
+	int fuel_gauge;
+	rc = axp_get_fuel_gauge(&fuel_gauge);
+	if (rc)
+		printf("Error reading Fuel Gauge");	
+
+	if (fuel_gauge != 0)
+		printf("Fuel Gauge: %i%%\n", fuel_gauge);
+
+	u16 batt_voltage;
+	rc = axp_get_battery_voltage(&batt_voltage);
+	if (rc)
+		printf("Error reading battery voltage");
+
+	printf("Battery Voltage: %imV\n", batt_voltage);
+
 #endif // CONFIG_AXP209_POWER
 
 #if defined CONFIG_AXP221_POWER || defined CONFIG_AXP818_POWER
