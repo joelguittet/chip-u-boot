@@ -349,14 +349,14 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *dest)
 	 * u-boot partition sits after 2 eraseblocks (spl, spl-backup), look
 	 * for backup u-boot 1 erase block further.
 	 */
-	const uint32_t eraseblock_size = CONFIG_SYS_NAND_U_BOOT_OFFS / 2;
+	const uint32_t eraseblock_size = CONFIG_SPL_NAND_U_BOOT_OFFS / 2;
 	const uint32_t boot_offsets[] = {
-		CONFIG_SYS_NAND_U_BOOT_OFFS,
-		CONFIG_SYS_NAND_U_BOOT_OFFS + eraseblock_size,
+		CONFIG_SPL_NAND_U_BOOT_OFFS,
+		CONFIG_SPL_NAND_U_BOOT_OFFS + eraseblock_size,
 	};
 	int i;
 
-	if (offs == CONFIG_SYS_NAND_U_BOOT_OFFS) {
+	if (offs == CONFIG_SPL_NAND_U_BOOT_OFFS) {
 		for (i = 0; i < ARRAY_SIZE(boot_offsets); i++) {
 			if (nand_read_buffer(boot_offsets[i], size,
 					     dest) == 0)

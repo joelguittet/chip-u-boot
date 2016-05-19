@@ -10,6 +10,10 @@
 #include <asm/io.h>
 #include <nand.h>
 
+#ifndef CONFIG_SYS_NAND_U_BOOT_OFFS
+#define CONFIG_SYS_NAND_U_BOOT_OFFS CONFIG_SPL_NAND_U_BOOT_OFFS
+#endif
+
 #if defined(CONFIG_SPL_NAND_RAW_ONLY)
 int spl_nand_load_image(void)
 {
