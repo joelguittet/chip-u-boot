@@ -104,6 +104,12 @@ config SPL_NAND_U_BOOT_OFFS
 	Set the offset from the start of the nand where u-boot should be
 	loaded from.
 
+config SPL_NAND_U_BOOT_OFFS_REDUND
+	hex "Location in NAND to read U-Boot from"
+	default SPL_NAND_U_BOOT_OFFS
+	help
+	Set the offset from the start of the nand where u-boot should be
+	loaded from.
 
 config SPL_NAND_DENALI
 	bool "Support Denali NAND controller for SPL"

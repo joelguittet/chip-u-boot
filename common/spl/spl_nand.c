@@ -12,6 +12,9 @@
 
 #ifndef CONFIG_SYS_NAND_U_BOOT_OFFS
 #define CONFIG_SYS_NAND_U_BOOT_OFFS CONFIG_SPL_NAND_U_BOOT_OFFS
+#define CONFIG_SYS_NAND_U_BOOT_OFFS_REDUND CONFIG_SPL_NAND_U_BOOT_OFFS_REDUND
+#else
+#define CONFIG_SYS_NAND_U_BOOT_OFFS_REDUND CONFIG_SYS_NAND_U_BOOT_OFFS
 #endif
 
 #if defined(CONFIG_SPL_NAND_RAW_ONLY)
@@ -102,6 +105,11 @@ int spl_nand_load_image(void)
 #endif
 	/* Load u-boot */
 	err = spl_nand_load_element(CONFIG_SYS_NAND_U_BOOT_OFFS, header);
+#if CONFIG_SYS_NAND_U_BOOT_OFFS != CONFIG_SYS_NAND_U_BOOT_OFFS_REDUND
+	if (err)
+		err = spl_nand_load_element(CONFIG_SYS_NAND_U_BOOT_OFFS_REDUND,
+					    header);
+#endif
 	nand_deselect();
 	return err;
 }
