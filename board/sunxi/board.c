@@ -1,4 +1,7 @@
 /*
+ * Copyright (C) 2016 Next Thing Co.
+ * Jose Angel Torres <software@nextthing.co>
+ * 
  * (C) Copyright 2012-2013 Henrik Nordstrom <henrik@henriknordstrom.net>
  * (C) Copyright 2013 Luke Kenneth Casson Leighton <lkcl@lkcl.net>
  *
@@ -444,17 +447,28 @@ void sunxi_board_init(void)
 	power_failed = axp_init();
 
 #ifdef CONFIG_AXP209_POWER
-  // power down immediately if powered on by pluging in to micro usb
+  // read SRAM_VER_REG to determine if booted with U-Boot Button Pressed
   unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
-
   if( (*sram_ver_reg) & 0x0100) {
+	// power down immediately if powered on by pluging in to micro usb
     rc = axp_is_powered(&powered);
     if (rc)
         printf("Error determining Power-on Status");
+        
     if (powered) { // started by plugging in?
+        // Get Battery Voltage
+        u16 batt_voltage;
+        rc = axp_get_battery_voltage(&batt_voltage);
+        if (rc)
+                printf("Error reading battery voltage");
+        
+         printf("Battery Voltage: %imV\n", batt_voltage);
+         
+         // Is Battery Connected?
          rc=axp_is_battery_connected(&battery_connected);
          if (rc)
                 printf("Error determining if Battery is connected");
+                
          if ( battery_connected ) {
            /* if there is a battery connected, shutdown */
            printf("Started by plugging in while battery connected"
@@ -465,8 +479,8 @@ void sunxi_board_init(void)
                 return;
            }
          }
-      }
-    } else {
+     }
+  } else {
     printf("FEL Jumper Set!\n");
   }
   
