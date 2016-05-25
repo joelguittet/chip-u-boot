@@ -1,6 +1,9 @@
 /*
  * (C) Copyright 2012
  * Henrik Nordstrom <henrik@henriknordstrom.net>
+ * 
+ * Copyright (C) 2016 Next Thing Co.
+ * Jose Angel Torres <software@nextthing.co>
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
@@ -144,18 +147,18 @@ int axp_set_no_limit(void)
 {
         int rc;
         u8 reg;
-        
+
     	rc = pmic_bus_read(AXP209_VBUS_POWER_PATH, &reg);
 	if (rc)
-		return rc;    
-        
+		return rc;
+
         reg = reg | AXP209_VBUS_NO_LIMIT;
         rc = pmic_bus_write(AXP209_VBUS_POWER_PATH, reg);
         if (rc)
 		return rc;
-	
+
 	return 0;
-        
+
 }
 
 int axp_get_fuel_gauge(int * fuel_gauge)
@@ -163,34 +166,34 @@ int axp_get_fuel_gauge(int * fuel_gauge)
         int rc, percent = 0;
         bool battery_connected = false;
         u8 reg;
-        
+
         rc = axp_is_battery_connected(&battery_connected);
         if (rc)
                 return rc;
-        
+
         if (!battery_connected)
         {
                 *fuel_gauge = 0;
                 return 0;
         }
-        
+
         rc = pmic_bus_read(AXP209_FUEL_GAUGE, &reg);
         if (rc)
-                return rc;               
-           
+                return rc;
+
         if (reg & 0x80)
         {
                 printf("Fuel Gauge: Suspended\n");
                 return 1;
         }
-        
+
         if ((reg >= 0x00) & (reg <= 0x7F))
         {
                 percent = (((float)reg / 127) * 100);
         }
-        
+
         *fuel_gauge = percent;
-        
+
         return 0;
 }
 
@@ -199,20 +202,20 @@ int axp_get_battery_voltage(u16 * voltage)
         int rc;
 	u8 MSB_REGISTER, LSB_REGISTER, LBIT_MASK;
 	u16 VALUE = 0;
-	
+
 	rc = pmic_bus_read(AXP209_BATTERY_VOLTAGE_HIGH, &MSB_REGISTER);
         if (rc)
                 return rc;
-                
+
 	rc = pmic_bus_read(AXP209_BATTERY_VOLTAGE_LOW, &LSB_REGISTER);
         if (rc)
                 return rc;
-                
+
 	LBIT_MASK=16;
 	VALUE=(MSB_REGISTER * LBIT_MASK) | ((LSB_REGISTER & 240) / LBIT_MASK);
-	
+
 	*voltage = VALUE;
-	
+
 	return 0;
 }
 
@@ -239,18 +242,18 @@ int axp_is_powered(bool * ispowered)
 {
         int rc;
         u8 val;
-        rc=pmic_bus_read(AXP209_POWER_MODE, &val);
+        rc=pmic_bus_read(AXP209_POWER_STATUS, &val);
         if (rc) {
                 printf("ERROR cannot read from AXP209!\n");
                 return 1;
         }
-        if ( val & 0x20 ) {
+        if ( val & 0x01 ) {
                 *ispowered = true;
         }
         else {
                 * ispowered = false;
         }
-        return 0;  
+        return 0;
 }
 
 int axp_shutdown(void)
@@ -258,11 +261,11 @@ int axp_shutdown(void)
         int rc;
         u8 val;
         rc = pmic_bus_read(AXP209_SHUTDOWN, &val);
-      
+
         if(rc) {
                 printf("ERROR cannot read from AXP209!\n");
         }
-      
+
         val |= 128;
         rc = pmic_bus_write(AXP209_SHUTDOWN, val);
         if(rc) {

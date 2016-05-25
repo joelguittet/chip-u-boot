@@ -1,4 +1,8 @@
 /*
+ * Copyright (C) 2016 Next Thing Co.
+ * Jose Angel Torres <software@nextthing.co>
+ * Andrew Hay Kurtz <software@nextthing.co>
+ * 
  * (C) Copyright 2012-2013 Henrik Nordstrom <henrik@henriknordstrom.net>
  * (C) Copyright 2013 Luke Kenneth Casson Leighton <lkcl@lkcl.net>
  *
@@ -445,9 +449,8 @@ void sunxi_board_init(void)
 	power_failed = axp_init();
 
 #ifdef CONFIG_AXP209_POWER
-	// power down immediately if powered on by pluging in to micro usb
+	// read SRAM_VER_REG to determine if booted with U-Boot Button Pressed
 	unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
-	printf("0x%08x\n", *sram_ver_reg);
 
 	if( (*sram_ver_reg) & 0x0100) {
 		rc = axp_is_powered(&powered);

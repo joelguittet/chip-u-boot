@@ -2,6 +2,9 @@
  * (C) Copyright 2012
  * Henrik Nordstrom <henrik@henriknordstrom.net>
  *
+ * Copyright (C) 2016 Next Thing Co.
+ * Jose Angel Torres <software@nextthing.co>
+ *
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
@@ -25,6 +28,7 @@ enum axp209_reg {
 	AXP209_BATTERY_VOLTAGE_HIGH = 0x78,
 	AXP209_BATTERY_VOLTAGE_LOW = 0x79,
 	AXP209_VBUS_POWER_PATH = 0x30,
+	
 };
 
 #define AXP209_POWER_STATUS_ON_BY_DC	(1 << 0)
