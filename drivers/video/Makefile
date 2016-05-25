@@ -29,6 +29,7 @@ obj-$(CONFIG_S6E63D6) += s6e63d6.o
 obj-$(CONFIG_LD9040) += ld9040.o
 obj-$(CONFIG_SED156X) += sed156x.o
 obj-$(CONFIG_VIDEO_BCM2835) += bcm2835.o
+obj-$(CONFIG_VIDEO_CHRONTEL_CH7033) += ch7033.o
 obj-$(CONFIG_VIDEO_COREBOOT) += coreboot_fb.o
 obj-$(CONFIG_VIDEO_CT69000) += ct69000.o videomodes.o
 obj-$(CONFIG_VIDEO_DA8XX) += da8xx-fb.o videomodes.o
