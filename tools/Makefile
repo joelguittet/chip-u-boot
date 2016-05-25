@@ -8,6 +8,7 @@
 # Enable all the config-independent tools
 ifneq ($(HOST_TOOLS_ALL),)
 CONFIG_LCD_LOGO = y
+CONFIG_CMD_SPLASH = y
 CONFIG_CMD_LOADS = y
 CONFIG_CMD_NET = y
 CONFIG_XWAY_SWAP_BYTES = y
@@ -36,6 +37,9 @@ hostprogs-$(CONFIG_CMD_LICENSE) += bin2header
 hostprogs-$(CONFIG_LCD_LOGO) += bmp_logo
 hostprogs-$(CONFIG_VIDEO_LOGO) += bmp_logo
 HOSTCFLAGS_bmp_logo.o := -pedantic
+
+hostprogs-$(CONFIG_CMD_SPLASH) += splash
+HOSTCFLAGS_splash.o := -pedantic
 
 hostprogs-$(CONFIG_BUILD_ENVCRC) += envcrc
 envcrc-objs := envcrc.o lib/crc32.o common/env_embedded.o lib/sha1.o
@@ -181,6 +185,8 @@ clean-dirs := lib common
 
 always := $(hostprogs-y)
 
+SPLASH_OUTPUT = $(objtree)/include/splash_image_data.h
+
 # Generated LCD/video logo
 LOGO_H = $(objtree)/include/bmp_logo.h
 LOGO_DATA_H = $(objtree)/include/bmp_logo_data.h
@@ -204,6 +210,11 @@ endif
 
 endif # !LOGO_BMP
 
+# Splash
+ifeq ($(SPLASH_DIR),)
+SPLASH_DIR= $(srctree)/$(src)/images
+endif # !SPLASH
+
 #
 # Use native tools and options
 # Define __KERNEL_STRICT_NAMES to prevent typedef overlaps
@@ -225,6 +236,10 @@ $(LOGO_H):	$(obj)/bmp_logo $(LOGO_BMP)
 
 $(LOGO_DATA_H):	$(obj)/bmp_logo $(LOGO_BMP)
 	$(obj)/bmp_logo --gen-data $(LOGO_BMP) > $@
+
+$(SPLASH_OUTPUT): $(obj)/splash $(SPLASH_DIR)
+	$(obj)/splash $(SPLASH_DIR) > $@
+
 
 # Let clean descend into subdirs
 subdir- += env
