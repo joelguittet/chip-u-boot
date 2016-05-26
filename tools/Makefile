@@ -210,6 +210,8 @@ endif
 
 endif # !LOGO_BMP
 
+SPLASH-$(CONFIG_CMD_SPLASH) += $(SPLASH_OUTPUT)
+
 # Splash
 ifeq ($(SPLASH_DIR),)
 SPLASH_DIR= $(srctree)/$(src)/images
@@ -229,7 +231,7 @@ HOST_EXTRACFLAGS += -include $(srctree)/include/libfdt_env.h \
 		-D__KERNEL_STRICT_NAMES \
 		-D_GNU_SOURCE
 
-__build:	$(LOGO-y)
+__build:	$(LOGO-y) $(SPLASH-y)
 
 $(LOGO_H):	$(obj)/bmp_logo $(LOGO_BMP)
 	$(obj)/bmp_logo --gen-info $(LOGO_BMP) > $@
