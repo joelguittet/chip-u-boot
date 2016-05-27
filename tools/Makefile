@@ -185,7 +185,8 @@ clean-dirs := lib common
 
 always := $(hostprogs-y)
 
-SPLASH_OUTPUT = $(objtree)/include/splash_image_data.h
+SPLASH_DATA_OUTPUT = $(objtree)/include/splash_data.h
+SPLASH_INFO_OUTPUT = $(objtree)/include/splash_info.h
 
 # Generated LCD/video logo
 LOGO_H = $(objtree)/include/bmp_logo.h
@@ -210,7 +211,8 @@ endif
 
 endif # !LOGO_BMP
 
-SPLASH-$(CONFIG_CMD_SPLASH) += $(SPLASH_OUTPUT)
+SPLASH-$(CONFIG_CMD_SPLASH) += $(SPLASH_DATA_OUTPUT)
+SPLASH-$(CONFIG_CMD_SPLASH) += $(SPLASH_INFO_OUTPUT)
 
 # Splash
 ifeq ($(SPLASH_DIR),)
@@ -238,9 +240,12 @@ $(LOGO_H):	$(obj)/bmp_logo $(LOGO_BMP)
 
 $(LOGO_DATA_H):	$(obj)/bmp_logo $(LOGO_BMP)
 	$(obj)/bmp_logo --gen-data $(LOGO_BMP) > $@
-
-$(SPLASH_OUTPUT): $(obj)/splash $(SPLASH_DIR)
-	$(obj)/splash $(SPLASH_DIR) > $@
+	
+$(SPLASH_INFO_OUTPUT): $(obj)/splash $(SPLASH_DIR)
+	$(obj)/splash --gen-info $(SPLASH_DIR) > $@
+	
+$(SPLASH_DATA_OUTPUT): $(obj)/splash $(SPLASH_DIR)
+	$(obj)/splash --gen-data $(SPLASH_DIR) > $@
 
 
 # Let clean descend into subdirs
