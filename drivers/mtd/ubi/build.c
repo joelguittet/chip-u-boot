@@ -1016,12 +1016,6 @@ int ubi_attach_mtd_dev(struct mtd_info *mtd, int ubi_num,
 		goto out_free;
 	}
 
-	if (ubi->autoresize_vol_id != -1) {
-		err = autoresize(ubi, ubi->autoresize_vol_id);
-		if (err)
-			goto out_detach;
-	}
-
 	err = uif_init(ubi, &ref);
 	if (err)
 		goto out_detach;
@@ -1079,10 +1073,20 @@ int ubi_attach_mtd_dev(struct mtd_info *mtd, int ubi_num,
 
 	spin_unlock(&ubi->wl_lock);
 
+	if (ubi->autoresize_vol_id != -1) {
+		err = autoresize(ubi, ubi->autoresize_vol_id);
+		if (err)
+			goto out_kthread;
+	}
+
 	ubi_devices[ubi_num] = ubi;
 	ubi_notify_all(ubi, UBI_VOLUME_ADDED, NULL);
 	return ubi_num;
 
+out_kthread:
+#ifndef __UBOOT__
+	kthread_stop(ubi->bgt_thread);
+#endif
 out_debugfs:
 	ubi_debugfs_exit_dev(ubi);
 out_uif:
