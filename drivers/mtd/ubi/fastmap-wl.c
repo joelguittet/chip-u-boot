@@ -280,7 +280,7 @@ int ubi_ensure_anchor_pebs(struct ubi_device *ubi)
 
 	wrk->anchor = 1;
 	wrk->func = &wear_leveling_worker;
-	schedule_ubi_work(ubi, wrk);
+	ubi_schedule_work(ubi, wrk);
 	return 0;
 }
 
