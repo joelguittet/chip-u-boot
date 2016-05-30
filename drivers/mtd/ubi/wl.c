@@ -185,6 +185,28 @@ static void wl_entry_destroy(struct ubi_device *ubi, struct ubi_wl_entry *e)
 }
 
 /**
+ * destroy_work - destroy an UBI work.
+ * @ref: kref object
+ *
+ * This function is called by kref upon the last reference is gone.
+ */
+static void destroy_work(struct kref *ref)
+{
+	struct ubi_work *wrk = container_of(ref, struct ubi_work, ref);
+
+	kfree(wrk);
+}
+
+/**
+ * wl_work_suspended - Check whether UBI work is suspended.
+ * @e: the wear-leveling entry to add
+ */
+static bool wl_work_suspended(struct ubi_device *ubi)
+{
+	return ubi->thread_suspended || !ubi->thread_enabled;
+}
+
+/**
  * do_work - do one pending work.
  * @ubi: UBI device description object
  *
@@ -202,17 +224,12 @@ int do_work(struct ubi_device *ubi)
 
 	cond_resched();
 
-	/*
-	 * @ubi->work_sem is used to synchronize with the workers. Workers take
-	 * it in read mode, so many of them may be doing works at a time. But
-	 * the queue flush code has to be sure the whole queue of works is
-	 * done, and it takes the mutex in write mode.
-	 */
-	down_read(&ubi->work_sem);
+	mutex_lock(&ubi->work_mutex);
 	spin_lock(&ubi->wl_lock);
-	if (list_empty(&ubi->works)) {
+	ubi_assert(!ubi->cur_work);
+	if (list_empty(&ubi->works) || wl_work_suspended(ubi)) {
 		spin_unlock(&ubi->wl_lock);
-		up_read(&ubi->work_sem);
+		mutex_unlock(&ubi->work_mutex);
 		return 0;
 	}
 
@@ -220,7 +237,9 @@ int do_work(struct ubi_device *ubi)
 	list_del(&wrk->list);
 	ubi->works_count -= 1;
 	ubi_assert(ubi->works_count >= 0);
+	ubi->cur_work = wrk;
 	spin_unlock(&ubi->wl_lock);
+	mutex_unlock(&ubi->work_mutex);
 
 	/*
 	 * Call the worker function. Do not touch the work structure
@@ -228,11 +247,90 @@ int do_work(struct ubi_device *ubi)
 	 * time by the worker function.
 	 */
 	err = wrk->func(ubi, wrk, 0);
+	wrk->ret = err;
 	if (err)
 		ubi_err(ubi, "work failed with error code %d", err);
-	up_read(&ubi->work_sem);
+
+	spin_lock(&ubi->wl_lock);
+	ubi->cur_work = NULL;
+	spin_unlock(&ubi->wl_lock);
+
+	complete_all(&wrk->comp);
+
+	spin_lock(&ubi->wl_lock);
+	kref_put(&wrk->ref, destroy_work);
+	spin_unlock(&ubi->wl_lock);
 
 	return err;
+}
+
+void ubi_wl_suspend_work(struct ubi_device *ubi)
+{
+	struct ubi_work *wrk = NULL;
+
+	mutex_lock(&ubi->work_mutex);
+	spin_lock(&ubi->wl_lock);
+
+	wrk = ubi->cur_work;
+	if (wrk)
+		kref_get(&wrk->ref);
+
+	ubi->thread_suspended = 1;
+
+	spin_unlock(&ubi->wl_lock);
+	mutex_unlock(&ubi->work_mutex);
+
+	if (wrk) {
+		wait_for_completion(&wrk->comp);
+		spin_lock(&ubi->wl_lock);
+		kref_put(&wrk->ref, destroy_work);
+		spin_unlock(&ubi->wl_lock);
+	}
+}
+
+void ubi_wl_resume_work(struct ubi_device *ubi)
+{
+	ubi->thread_suspended = 0;
+	wake_up_process(ubi->bgt_thread);
+}
+
+/**
+ * wl_do_one_work_sync - Run one work in sync.
+ * @ubi: UBI device description object
+ *
+ * This function joins one work and waits for it.
+ * Call it when you run out of free LEBs need to wait for one.
+ * It returns false if no pending work was found to join, true otherwise.
+ */
+static bool wl_do_one_work_sync(struct ubi_device *ubi)
+{
+	struct ubi_work *wrk = NULL;
+	bool success = false;
+
+	mutex_lock(&ubi->work_mutex);
+	spin_lock(&ubi->wl_lock);
+	if (ubi->cur_work)
+		wrk = ubi->cur_work;
+	else
+		wrk = list_first_entry_or_null(&ubi->works, struct ubi_work,
+					       list);
+
+	if (wrk)
+		kref_get(&wrk->ref);
+	spin_unlock(&ubi->wl_lock);
+	mutex_unlock(&ubi->work_mutex);
+
+	if (wrk) {
+		wait_for_completion(&wrk->comp);
+		if (wrk->ret == 0)
+			success = true;
+
+		spin_lock(&ubi->wl_lock);
+		kref_put(&wrk->ref, destroy_work);
+		spin_unlock(&ubi->wl_lock);
+	}
+
+	return success;
 }
 
 /**
@@ -528,22 +626,32 @@ repeat:
 	spin_unlock(&ubi->wl_lock);
 }
 
+static bool wl_work_suspended(struct ubi_device *ubi)
+{
+	return ubi->thread_suspended || !ubi->thread_enabled;
+}
+
 /**
  * __schedule_ubi_work - schedule a work.
  * @ubi: UBI device description object
  * @wrk: the work to schedule
  *
  * This function adds a work defined by @wrk to the tail of the pending works
- * list. Can only be used if ubi->work_sem is already held in read mode!
+ * list. Can only be used if ubi->work_mutex is already held.
  */
 static void __schedule_ubi_work(struct ubi_device *ubi, struct ubi_work *wrk)
 {
+	ubi_assert(ubi->thread_enabled);
+
 	spin_lock(&ubi->wl_lock);
+	INIT_LIST_HEAD(&wrk->list);
+	kref_init(&wrk->ref);
+	init_completion(&wrk->comp);
 	list_add_tail(&wrk->list, &ubi->works);
 	ubi_assert(ubi->works_count >= 0);
 	ubi->works_count += 1;
 #ifndef __UBOOT__
-	if (ubi->thread_enabled && !ubi_dbg_is_bgt_disabled(ubi))
+	if (!wl_work_suspended(ubi) && !ubi_dbg_is_bgt_disabled(ubi))
 		wake_up_process(ubi->bgt_thread);
 #else
 	int err;
@@ -570,9 +678,9 @@ static void __schedule_ubi_work(struct ubi_device *ubi, struct ubi_work *wrk)
  */
 static void schedule_ubi_work(struct ubi_device *ubi, struct ubi_work *wrk)
 {
-	down_read(&ubi->work_sem);
+	mutex_lock(&ubi->work_mutex);
 	__schedule_ubi_work(ubi, wrk);
-	up_read(&ubi->work_sem);
+	mutex_unlock(&ubi->work_mutex);
 }
 
 static int erase_worker(struct ubi_device *ubi, struct ubi_work *wl_wrk,
@@ -629,7 +737,7 @@ static int do_sync_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
 
 	dbg_wl("sync erase of PEB %i", e->pnum);
 
-	wl_wrk = kmalloc(sizeof(struct ubi_work), GFP_NOFS);
+	wl_wrk = ubi_alloc_work(ubi);
 	if (!wl_wrk)
 		return -ENOMEM;
 
@@ -663,7 +771,6 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 	struct ubi_wl_entry *e1, *e2;
 	struct ubi_vid_hdr *vid_hdr;
 
-	kfree(wrk);
 	if (shutdown)
 		return 0;
 
@@ -1046,7 +1153,6 @@ static int erase_worker(struct ubi_device *ubi, struct ubi_work *wl_wrk,
 
 	if (shutdown) {
 		dbg_wl("cancel erasure of PEB %d EC %d", pnum, e->ec);
-		kfree(wl_wrk);
 		wl_entry_destroy(ubi, e);
 		return 0;
 	}
@@ -1057,8 +1163,6 @@ static int erase_worker(struct ubi_device *ubi, struct ubi_work *wl_wrk,
 	err = sync_erase(ubi, e, wl_wrk->torture);
 	if (!err) {
 		/* Fine, we've erased it successfully */
-		kfree(wl_wrk);
-
 		spin_lock(&ubi->wl_lock);
 		wl_tree_add(e, &ubi->free);
 		ubi->free_count++;
@@ -1076,7 +1180,6 @@ static int erase_worker(struct ubi_device *ubi, struct ubi_work *wl_wrk,
 	}
 
 	ubi_err(ubi, "failed to erase PEB %d, error %d", pnum, err);
-	kfree(wl_wrk);
 
 	if (err == -EINTR || err == -ENOMEM || err == -EAGAIN ||
 	    err == -EBUSY) {
@@ -1322,43 +1425,33 @@ retry:
  * ubi_wl_flush - flush all pending works.
  * @ubi: UBI device description object
  *
- * This function returns zero in case of success and a negative error code in
- * case of failure.
  */
 int ubi_wl_flush(struct ubi_device *ubi)
 {
-	int err = 0;
+	int ret = 0;
+	struct ubi_work *wrk = NULL;
 
-	/*
-	 * Erase while the pending works queue is not empty, but not more than
-	 * the number of currently pending works.
-	 */
 	dbg_wl("flush (%d pending works)", ubi->works_count);
-	while (ubi->works_count) {
-		err = do_work(ubi);
-		if (err)
-			return err;
+
+	/* Find the last entry in the work list and wait for it. */
+	mutex_lock(&ubi->work_mutex);
+	spin_lock(&ubi->wl_lock);
+	if (!list_empty(&ubi->works)) {
+		wrk = list_last_entry(&ubi->works, struct ubi_work, list);
+		kref_get(&wrk->ref);
+	}
+	spin_unlock(&ubi->wl_lock);
+	mutex_unlock(&ubi->work_mutex);
+
+	if (wrk) {
+		wait_for_completion(&wrk->comp);
+		ret = wrk->ret;
+		spin_lock(&ubi->wl_lock);
+		kref_put(&wrk->ref, destroy_work);
+		spin_unlock(&ubi->wl_lock);
 	}
 
-	/*
-	 * Make sure all the works which have been done in parallel are
-	 * finished.
-	 */
-	down_write(&ubi->work_sem);
-	up_write(&ubi->work_sem);
-
-	/*
-	 * And in case last was the WL worker and it canceled the LEB
-	 * movement, flush again.
-	 */
-	while (ubi->works_count) {
-		dbg_wl("flush more (%d pending works)", ubi->works_count);
-		err = do_work(ubi);
-		if (err)
-			return err;
-	}
-
-	return err;
+	return ret;
 }
 
 /**
@@ -1393,6 +1486,24 @@ static void tree_destroy(struct ubi_device *ubi, struct rb_root *root)
 	}
 }
 
+static void __shutdown_work(struct ubi_device *ubi, int error)
+{
+	struct ubi_work *wrk;
+
+	while (!list_empty(&ubi->works)) {
+		wrk = list_entry(ubi->works.next, struct ubi_work, list);
+		list_del(&wrk->list);
+		wrk->func(ubi, wrk, 1);
+		wrk->ret = error;
+		complete_all(&wrk->comp);
+		spin_lock(&ubi->wl_lock);
+		kref_put(&wrk->ref, destroy_work);
+		spin_unlock(&ubi->wl_lock);
+		ubi->works_count -= 1;
+		ubi_assert(ubi->works_count >= 0);
+	}
+}
+
 /**
  * ubi_thread - UBI background thread.
  * @u: the UBI device description object pointer
@@ -1417,7 +1528,7 @@ int ubi_thread(void *u)
 
 		spin_lock(&ubi->wl_lock);
 		if (list_empty(&ubi->works) || ubi->ro_mode ||
-		    !ubi->thread_enabled || ubi_dbg_is_bgt_disabled(ubi)) {
+		    wl_work_suspended(ubi) || ubi_dbg_is_bgt_disabled(ubi)) {
 			set_current_state(TASK_INTERRUPTIBLE);
 			spin_unlock(&ubi->wl_lock);
 			schedule();
@@ -1434,8 +1545,9 @@ int ubi_thread(void *u)
 				 * Too many failures, disable the thread and
 				 * switch to read-only mode.
 				 */
-				ubi_msg(ubi, "%s: %d consecutive failures",
+				ubi_err(ubi, "%s: %d consecutive failures",
 					ubi->bgt_name, WL_MAX_FAILURES);
+				__shutdown_work(ubi, -EROFS);
 				ubi_ro_mode(ubi);
 				ubi->thread_enabled = 0;
 				continue;
@@ -1454,7 +1566,7 @@ int ubi_thread(void *u)
  * shutdown_work - shutdown all pending works.
  * @ubi: UBI device description object
  */
-static void shutdown_work(struct ubi_device *ubi)
+static void shutdown_work(struct ubi_device *ubi, int error)
 {
 #ifdef CONFIG_MTD_UBI_FASTMAP
 #ifndef __UBOOT__
@@ -1463,15 +1575,7 @@ static void shutdown_work(struct ubi_device *ubi)
 	/* in U-Boot, we have all work done */
 #endif
 #endif
-	while (!list_empty(&ubi->works)) {
-		struct ubi_work *wrk;
-
-		wrk = list_entry(ubi->works.next, struct ubi_work, list);
-		list_del(&wrk->list);
-		wrk->func(ubi, wrk, 1);
-		ubi->works_count -= 1;
-		ubi_assert(ubi->works_count >= 0);
-	}
+	__shutdown_work(ubi, error);
 }
 
 /**
@@ -1493,7 +1597,7 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	ubi->used = ubi->erroneous = ubi->free = ubi->scrub = RB_ROOT;
 	spin_lock_init(&ubi->wl_lock);
 	mutex_init(&ubi->move_mutex);
-	init_rwsem(&ubi->work_sem);
+	mutex_init(&ubi->work_mutex);
 	ubi->max_ec = ai->max_ec;
 	INIT_LIST_HEAD(&ubi->works);
 
@@ -1608,7 +1712,7 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	return 0;
 
 out_free:
-	shutdown_work(ubi);
+	shutdown_work(ubi, err);
 	tree_destroy(ubi, &ubi->used);
 	tree_destroy(ubi, &ubi->free);
 	tree_destroy(ubi, &ubi->scrub);
@@ -1641,7 +1745,7 @@ void ubi_wl_close(struct ubi_device *ubi)
 {
 	dbg_wl("close the WL sub-system");
 	ubi_fastmap_close(ubi);
-	shutdown_work(ubi);
+	shutdown_work(ubi, 0);
 	protection_queue_destroy(ubi);
 	tree_destroy(ubi, &ubi->used);
 	tree_destroy(ubi, &ubi->erroneous);
@@ -1770,17 +1874,17 @@ static struct ubi_wl_entry *get_peb_for_wl(struct ubi_device *ubi)
  */
 static int produce_free_peb(struct ubi_device *ubi)
 {
-	int err;
-
-	while (!ubi->free.rb_node && ubi->works_count) {
+	while (!ubi->free.rb_node) {
 		spin_unlock(&ubi->wl_lock);
 
 		dbg_wl("do one work synchronously");
-		err = do_work(ubi);
+		if (!wl_do_one_work_sync(ubi)) {
+			spin_lock(&ubi->wl_lock);
+			/* Nothing to do. We have to give up. */
+			return -ENOSPC;
+		}
 
 		spin_lock(&ubi->wl_lock);
-		if (err)
-			return err;
 	}
 
 	return 0;

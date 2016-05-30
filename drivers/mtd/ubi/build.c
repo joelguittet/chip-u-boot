@@ -1006,6 +1006,9 @@ int ubi_attach_mtd_dev(struct mtd_info *mtd, int ubi_num,
 	if (!ubi->fm_buf)
 		goto out_free;
 #endif
+	ubi->thread_enabled = 1;
+	ubi->thread_suspended = 1;
+
 	err = ubi_attach(ubi, 0);
 	if (err) {
 		ubi_err(ubi, "failed to attach mtd%d, error %d",
@@ -1059,7 +1062,7 @@ int ubi_attach_mtd_dev(struct mtd_info *mtd, int ubi_num,
 	 * checks @ubi->thread_enabled. Otherwise we may fail to wake it up.
 	 */
 	spin_lock(&ubi->wl_lock);
-	ubi->thread_enabled = 1;
+	ubi->thread_suspended = 0;
 #ifndef __UBOOT__
 	wake_up_process(ubi->bgt_thread);
 #else
