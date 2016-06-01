@@ -89,7 +89,7 @@ int is_bmp(const char *name)
 
 void usage(const char *prog)
 {
-	fprintf(stderr, "Usage: %s [--gen-info|--gen-data] folder\n", prog);
+	printf("Usage: %s [--gen-info|--gen-data] folder\n", prog);
 }
 
 int main (int argc, char *argv[])
@@ -104,7 +104,7 @@ int main (int argc, char *argv[])
 	int i = 0, k;
 	char filename [256];
 	int mode, cx;
-	char *s;
+	char bmp_name[256];
 	
 	if (!strcmp(argv[1], "--gen-info"))
 		mode = MODE_GEN_INFO;
@@ -155,19 +155,23 @@ int main (int argc, char *argv[])
 			exit (EXIT_FAILURE);
 		}
 		
-		s = remove_ext (FilenameArr[k], '.', '/');
+		cx = snprintf ( bmp_name, 256, "bitmap_%d", k);
+		if (!(cx>=0 && cx<256)) {
+			fprintf(stderr, "Filename error!");
+			exit(EXIT_FAILURE);
+		}
 		
 		get_bitmap_info(b, &n_colors, &data_offset, fp);
 		
 		if(mode == MODE_GEN_INFO)
 		{
 			//Generate Bitmap Info
-			print_bitmap_info(b, n_colors, s);
+			print_bitmap_info(b, n_colors, bmp_name, k);
 		}
 		else if (mode == MODE_GEN_DATA)
 		{
 			//Generate Bitmap Data
-			print_bitmap_data(b, n_colors, data_offset, fp, s);
+			print_bitmap_data(b, n_colors, data_offset, fp, bmp_name);
 		}
 		else
 		{
@@ -176,7 +180,7 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	print_footer(mode);	
+	print_footer(mode, k);	
 	
 	fclose(fp);
 	return 0;
@@ -235,6 +239,13 @@ void print_header(int mode) {
 	{
 		printf(	"#ifndef __SPLASH_INFO_H__\n"
 				"#define __SPLASH_INFO_H__\n\n");
+		
+		printf( "typedef struct bmp_properties {"
+				"	int width;\n"
+				"	int height;\n"
+				"	int colors;\n"
+				"	int offset;\n;"
+				"} bmp_properties;\n\n");
 	}
 	else if (mode == MODE_GEN_DATA)
 	{
@@ -248,13 +259,40 @@ void print_header(int mode) {
 	}
 }
 
-void print_footer(int mode) {
+void print_footer(int mode, int num_splashes) {
+	int i;
+	
 	if(mode == MODE_GEN_INFO)
 	{
-		printf( "#endif /* __SPLASH_INFO_H__\n\n");
+		printf("bmp_properties * properties[] = {");
+		for (i = 0; i < num_splashes; i++)
+		{
+			printf(" &bitmap_%d_prop,", i);
+		}
+				
+		printf( " };\n\n");		
+		printf( "#endif /* __SPLASH_INFO_H__ */\n\n");
 	}
 	else if (mode == MODE_GEN_DATA)
 	{
+		printf( "#define NUM_SPLASHES  %d\n\n", num_splashes);
+		
+		printf(	"static unsigned short * palettes[NUM_SPLASHES] = {");
+		for (i = 0; i < num_splashes; i++)
+		{
+			printf(" bitmap_%d_palette,", i);
+		}
+		
+		printf( " };\n");
+		
+		printf( "static unsigned char * bitmaps[NUM_SPLASHES] = {");
+		for (i = 0; i < num_splashes; i++)
+		{
+			printf(" bitmap_%d,",  i);
+		}
+		
+		printf( " };\n\n");
+		
 		printf( "#endif /* __SPLASH_IMAGE_DATA_H__ */\n");
 	}
 	else
@@ -264,17 +302,16 @@ void print_footer(int mode) {
 	}        
 }
 
-void print_bitmap_info(bitmap_t *b, uint16_t n_colors, char *filename) {
-	printf(	"#define %s_WIDTH\t\t%d\n"
-			"#define %s_HEIGHT\t\t%d\n"
-			"#define %s_COLORS\t\t%d\n"
-			"#define %s_OFFSET\t\t%d\n\n"
+void print_bitmap_info(bitmap_t *b, uint16_t n_colors, char *bmp_name, int splash_num) {
+
+	printf(	"bmp_properties %s_prop = { .width = %d, .height = %d, .colors = %d, .offset = %d };\n\n"
 			"extern unsigned short %s_palette[];\n"
-			"extern unsigned char %s_bitmap[];\n\n", filename, b->width, filename, b->height, filename, n_colors,
-			filename, DEFAULT_CMAP_SIZE, filename, filename);
+			"extern unsigned char %s[];\n\n", 
+			bmp_name, b->width, b->height, n_colors, DEFAULT_CMAP_SIZE, bmp_name, bmp_name);
+
 }
 
-void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FILE *fp, char *filename) {
+void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FILE *fp, char *bmp_name) {
 	int i, x;
     /* allocate memory */
     if ((b->data = (uint8_t *)malloc(b->width * b->height)) == NULL)
@@ -283,7 +320,7 @@ void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FIL
 	//TODO: Get filename and replace below in platette variable
 
         /* read and print the palette information */
-        printf("unsigned short %s_palette[] = {\n", filename);
+        printf("unsigned short %s_palette[] = {\n", bmp_name);
 
         for (i=0; i<n_colors; ++i) {
                 b->palette[(int)(i*3+2)] = fgetc(fp);
@@ -308,7 +345,7 @@ void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FIL
     printf ("};\n");
     printf ("\n");
 	//TODO: Get filename and replace below in bitmap variable
-    printf("unsigned char %s_bitmap[] = {\n", filename);
+    printf("unsigned char %s[] = {\n", bmp_name);
         for (i=(b->height-1)*b->width; i>=0; i-=b->width) {
                 for (x = 0; x < b->width; x++) {
                         b->data[i + x] = (uint8_t) fgetc(fp)

@@ -26,8 +26,8 @@ typedef struct bitmap_s {		/* bitmap description */
 void get_bitmap_info(bitmap_t *b, uint16_t *n_colors, uint16_t *data_offset, FILE *fp);
 
 void print_header(int mode);
-void print_footer(int mode);
-void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FILE *fp, char * filename);
-void print_bitmap_info(bitmap_t *b, uint16_t n_colors, char * filename);
+void print_footer(int mode, int num_splashes);
+void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FILE *fp, char * bmp_name);
+void print_bitmap_info(bitmap_t *b, uint16_t n_colors, char * bmp_name, int splash_num);
 
 #endif /*__SPLASH_TOOL_H__ */
