@@ -480,6 +480,14 @@ config CMD_SOUND
 
 	     sound init   - set up sound system
 	     sound play   - play a sound
+	     
+config CMD_SPLASH
+	bool "splash"
+	help
+	  This provides splash support to U-Boot. 
+
+	     splash num    - show number of splash images
+	     splash show # - display a splash screen
 
 endmenu
 

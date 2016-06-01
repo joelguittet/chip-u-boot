@@ -196,6 +196,10 @@
 #include <splash.h>
 #endif
 
+#ifdef CONFIG_CMD_SPLASH
+#include <splash_info.h>
+#endif
+
 /*
  * Cursor definition:
  * CONFIG_CONSOLE_CURSOR:  Uses a timer function (see drivers/input/i8042.c)
@@ -1823,6 +1827,105 @@ int video_display_bitmap(ulong bmp_image, int x, int y)
 }
 #endif
 
+void video_display_splash(int splash_num) {
+	int xcount, i;
+	bmp_properties * bmp_prop = properties[splash_num];
+	
+	int x = max(0, (int)(VIDEO_VISIBLE_COLS - bmp_prop->width) / 2);
+	int y = max(0, (int)(VIDEO_VISIBLE_ROWS - bmp_prop->height) / 2);
+
+	unsigned char r, g, b, *logo_red, *logo_blue, *logo_green;
+	unsigned char *dest;
+	unsigned char *source;
+
+	unsigned short * bmp_palette = palettes[splash_num];
+	int skip = VIDEO_LINE_LEN - bmp_prop->width * VIDEO_PIXEL_SIZE;
+	void *screen = video_fb_address;
+	
+	dest = (unsigned char *)screen + y * VIDEO_LINE_LEN + x * VIDEO_PIXEL_SIZE;
+	source = bitmaps[splash_num];
+	int ycount = bmp_prop->height;
+ 	
+	/* Allocate temporary space for computing colormap */
+	logo_red = malloc(bmp_prop->colors);
+	logo_green = malloc(bmp_prop->colors);
+	logo_blue = malloc(bmp_prop->colors);
+
+	/* Compute color map */
+	for (i = 0; i < bmp_prop->colors; i++) {
+		logo_red[i] = (bmp_palette[i] & 0x0f00) >> 4;
+		logo_green[i] = (bmp_palette[i] & 0x00f0);
+		logo_blue[i] = (bmp_palette[i] & 0x000f) << 4;
+	}
+		
+	if (VIDEO_DATA_FORMAT == GDF__8BIT_INDEX) {
+		for (i = 0; i <  bmp_prop->colors; i++) {
+				video_set_lut(	i + bmp_prop->offset,
+								logo_red[i], logo_green[i],
+								logo_blue[i]);
+		}
+	}
+
+	while (ycount--) {
+				xcount = bmp_prop->width;
+				while (xcount--) {
+
+					r = logo_red[*source - bmp_prop->offset];
+					g = logo_green[*source - bmp_prop->offset];
+					b = logo_blue[*source - bmp_prop->offset];
+
+					switch (VIDEO_DATA_FORMAT) {
+					case GDF__8BIT_INDEX:
+						*dest = *source;
+						break;
+					case GDF__8BIT_332RGB:
+						*dest = ((r >> 5) << 5) |
+							((g >> 5) << 2) |
+							 (b >> 6);
+						break;
+					case GDF_15BIT_555RGB:
+						*(unsigned short *) dest =
+							SWAP16((unsigned short) (
+									((r >> 3) << 10) |
+									((g >> 3) <<  5) |
+									 (b >> 3)));
+						break;
+					case GDF_16BIT_565RGB:
+						*(unsigned short *) dest =
+							SWAP16((unsigned short) (
+									((r >> 3) << 11) |
+									((g >> 2) <<  5) |
+									 (b >> 3)));
+						break;
+					case GDF_32BIT_X888RGB:
+						*(unsigned long *) dest =
+							SWAP32((unsigned long) (
+									(r << 16) |
+									(g <<  8) |
+									 b));
+						break;
+					case GDF_24BIT_888RGB:
+		#ifdef VIDEO_FB_LITTLE_ENDIAN
+						dest[0] = b;
+						dest[1] = g;
+						dest[2] = r;
+		#else
+						dest[0] = r;
+						dest[1] = g;
+						dest[2] = b;
+		#endif
+						break;
+					}
+					source++;
+					dest += VIDEO_PIXEL_SIZE;
+				}
+				dest += skip;
+			}
+
+	free(logo_red);
+	free(logo_green);
+	free(logo_blue);
+}
 
 #ifdef CONFIG_VIDEO_LOGO
 static int video_logo_xpos;

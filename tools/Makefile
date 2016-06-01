@@ -185,7 +185,8 @@ clean-dirs := lib common
 
 always := $(hostprogs-y)
 
-SPLASH_DATA_OUTPUT = $(objtree)/include/splash_data.h
+#Generated Splash files
+SPLASH_DATA_OUTPUT = $(objtree)/common/splash_data.c
 SPLASH_INFO_OUTPUT = $(objtree)/include/splash_info.h
 
 # Generated LCD/video logo

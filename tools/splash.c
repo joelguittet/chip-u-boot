@@ -98,7 +98,6 @@ int main (int argc, char *argv[])
 	FILE	*fp;
 	bitmap_t bmp;
 	bitmap_t *b = &bmp;
-	uint16_t data_offset, n_colors;
 	DIR *dp;
 	struct dirent *ep;
 	int i = 0, k;
@@ -161,22 +160,12 @@ int main (int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 		
-		get_bitmap_info(b, &n_colors, &data_offset, fp);
+		get_bitmap_info(b, fp);
 		
-		if(mode == MODE_GEN_INFO)
-		{
-			//Generate Bitmap Info
-			print_bitmap_info(b, n_colors, bmp_name, k);
-		}
-		else if (mode == MODE_GEN_DATA)
+		if (mode == MODE_GEN_DATA)
 		{
 			//Generate Bitmap Data
-			print_bitmap_data(b, n_colors, data_offset, fp, bmp_name);
-		}
-		else
-		{
-			fprintf(stderr, "Incorrect Mode Setting!\n");
-			exit (EXIT_FAILURE);
+			print_bitmap_data(b, fp, bmp_name);
 		}
 	}
 
@@ -186,7 +175,8 @@ int main (int argc, char *argv[])
 	return 0;
 }
 
-void get_bitmap_info(bitmap_t *b, uint16_t *n_colors, uint16_t *data_offset, FILE *fp) {
+void get_bitmap_info(bitmap_t *b, FILE *fp)
+{
 
 	//Check if bitmap file
 		if (fgetc (fp) != 'B' || fgetc (fp) != 'M') {
@@ -199,31 +189,44 @@ void get_bitmap_info(bitmap_t *b, uint16_t *n_colors, uint16_t *data_offset, FIL
          * ignore the rest
          */
         skip_bytes (fp, 8);
-        if (fread (data_offset, sizeof (uint16_t), 1, fp) != 1)
+        if (fread (&b->data_offset, sizeof (uint16_t), 1, fp) != 1)
                 fprintf(stderr, "%s\n", "Couldn't read bitmap data offset\n");
+        // width
         skip_bytes (fp, 6);
         if (fread (&b->width,   sizeof (uint16_t), 1, fp) != 1)
                 fprintf(stderr, "%s\n", "Couldn't read bitmap width\n");
+        // height
         skip_bytes (fp, 2);
         if (fread (&b->height,  sizeof (uint16_t), 1, fp) != 1)
                 fprintf(stderr, "%s\n", "Couldn't read bitmap height\n");
-        skip_bytes (fp, 22);
-        if (fread (n_colors, sizeof (uint16_t), 1, fp) != 1)
+        //bit_count
+        skip_bytes (fp, 4);
+        if (fread (&b->bit_count,  sizeof (uint16_t), 1, fp) != 1)
+                fprintf(stderr, "%s\n", "Couldn't read bitmap bit_count\n");
+        //compression
+        if (fread (&b->compression,  sizeof (uint16_t), 1, fp) != 1)
+                fprintf(stderr, "%s\n", "Couldn't read bitmap compression\n");
+        //colors
+        skip_bytes (fp, 14);
+        if (fread (&b->n_colors, sizeof (uint16_t), 1, fp) != 1)
                 fprintf(stderr, "%s\n", "Couldn't read bitmap colors\n");
         skip_bytes (fp, 6);
 
         /*
          * Repair endianess.
          */
-        *data_offset = le_short(*data_offset);
+        b->data_offset = le_short(b->data_offset);
         b->width = le_short(b->width);
         b->height = le_short(b->height);
-        *n_colors = le_short(*n_colors);
+        b->n_colors = le_short(b->n_colors);
+        
+        fprintf(stderr, "Colors: %d\n", b->n_colors);
+        fprintf(stderr, "Offset: %d\n", b->data_offset);
 
         /* assume we are working with an 8-bit file */
-        if ((*n_colors == 0) || (*n_colors > 256 - DEFAULT_CMAP_SIZE)) {
+        if ((b->n_colors == 0) || (b->n_colors > 256 - DEFAULT_CMAP_SIZE)) {
                 /* reserve DEFAULT_CMAP_SIZE color map entries for default map */
-                *n_colors = 256 - DEFAULT_CMAP_SIZE;
+        		b->n_colors = 256 - DEFAULT_CMAP_SIZE;
         }
 }  
 
@@ -240,17 +243,18 @@ void print_header(int mode) {
 		printf(	"#ifndef __SPLASH_INFO_H__\n"
 				"#define __SPLASH_INFO_H__\n\n");
 		
-		printf( "typedef struct bmp_properties {"
+		printf( "typedef struct bmp_properties {\n"
 				"	int width;\n"
 				"	int height;\n"
 				"	int colors;\n"
-				"	int offset;\n;"
+				"	int offset;\n"
+				"	int bit_count;\n"
+				"	int compression;\n"
 				"} bmp_properties;\n\n");
 	}
 	else if (mode == MODE_GEN_DATA)
 	{
-		printf(	"#ifndef __SPLASH_DATA_H__\n"
-				"#define __SPLASH_DATA_H__\n\n");
+		printf(	"#include <splash_info.h>\n\n");
 	}
 	else
     {
@@ -264,20 +268,25 @@ void print_footer(int mode, int num_splashes) {
 	
 	if(mode == MODE_GEN_INFO)
 	{
-		printf("bmp_properties * properties[] = {");
+		printf( "extern bmp_properties * properties[];\n"
+				"extern unsigned short * palettes[];\n"
+				"extern unsigned char * bitmaps[];\n\n");
+		
+		printf( "#define NUM_SPLASHES  %d\n\n", num_splashes);
+		
+		printf( "#endif /* __SPLASH_INFO_H__ */\n\n");
+	}
+	else if (mode == MODE_GEN_DATA)
+	{
+		printf("bmp_properties * properties[NUM_SPLASHES] = {");
 		for (i = 0; i < num_splashes; i++)
 		{
 			printf(" &bitmap_%d_prop,", i);
 		}
 				
 		printf( " };\n\n");		
-		printf( "#endif /* __SPLASH_INFO_H__ */\n\n");
-	}
-	else if (mode == MODE_GEN_DATA)
-	{
-		printf( "#define NUM_SPLASHES  %d\n\n", num_splashes);
 		
-		printf(	"static unsigned short * palettes[NUM_SPLASHES] = {");
+		printf(	"unsigned short * palettes[NUM_SPLASHES] = {");
 		for (i = 0; i < num_splashes; i++)
 		{
 			printf(" bitmap_%d_palette,", i);
@@ -285,15 +294,13 @@ void print_footer(int mode, int num_splashes) {
 		
 		printf( " };\n");
 		
-		printf( "static unsigned char * bitmaps[NUM_SPLASHES] = {");
+		printf( "unsigned char * bitmaps[NUM_SPLASHES] = {");
 		for (i = 0; i < num_splashes; i++)
 		{
 			printf(" bitmap_%d,",  i);
 		}
 		
 		printf( " };\n\n");
-		
-		printf( "#endif /* __SPLASH_IMAGE_DATA_H__ */\n");
 	}
 	else
     {
@@ -302,16 +309,7 @@ void print_footer(int mode, int num_splashes) {
 	}        
 }
 
-void print_bitmap_info(bitmap_t *b, uint16_t n_colors, char *bmp_name, int splash_num) {
-
-	printf(	"bmp_properties %s_prop = { .width = %d, .height = %d, .colors = %d, .offset = %d };\n\n"
-			"extern unsigned short %s_palette[];\n"
-			"extern unsigned char %s[];\n\n", 
-			bmp_name, b->width, b->height, n_colors, DEFAULT_CMAP_SIZE, bmp_name, bmp_name);
-
-}
-
-void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FILE *fp, char *bmp_name) {
+void print_bitmap_data(bitmap_t *b, FILE *fp, char *bmp_name) {
 	int i, x;
     /* allocate memory */
     if ((b->data = (uint8_t *)malloc(b->width * b->height)) == NULL)
@@ -322,7 +320,7 @@ void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FIL
         /* read and print the palette information */
         printf("unsigned short %s_palette[] = {\n", bmp_name);
 
-        for (i=0; i<n_colors; ++i) {
+        for (i=0; i<b->n_colors; ++i) {
                 b->palette[(int)(i*3+2)] = fgetc(fp);
                 b->palette[(int)(i*3+1)] = fgetc(fp);
                 b->palette[(int)(i*3+0)] = fgetc(fp);
@@ -338,7 +336,7 @@ void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FIL
         }
 
     /* seek to offset indicated by file header */
-    fseek(fp, (long)data_offset, SEEK_SET);
+    fseek(fp, (long)b->data_offset, SEEK_SET);
 
     /* read the bitmap; leave room for default color map */
     printf ("\n");
@@ -362,8 +360,11 @@ void print_bitmap_data(bitmap_t *b, uint16_t n_colors, uint16_t data_offset, FIL
                 );
         }
 
-        printf ("\n"
-                "};\n\n"
-	);
+    printf ("\n"
+            "};\n\n"
+    );
+        
+	printf(	"bmp_properties %s_prop = { .width = %d, .height = %d, .colors = %d, .offset = %d, .bit_count = %d, .compression = %d };\n\n",
+			bmp_name, b->width, b->height, b->n_colors, DEFAULT_CMAP_SIZE, b->bit_count, b->compression);
 
 }

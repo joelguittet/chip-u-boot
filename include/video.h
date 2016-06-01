@@ -27,6 +27,15 @@ void	video_puts(struct stdio_dev *dev, const char *s);
 int video_display_bitmap(ulong bmp_image, int x, int y);
 
 /**
+ * Display a compiled splash on the screen
+ *
+ * @param num	Number of splash image to display
+ * @param x		X position to draw image
+ * @param y		Y position to draw image
+ */
+void video_display_splash(int splash_num);
+
+/**
  * Get the width of the screen in pixels
  *
  * @return width of screen in pixels
