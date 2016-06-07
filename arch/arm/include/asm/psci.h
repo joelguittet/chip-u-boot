@@ -33,6 +33,13 @@
 #define ARM_PSCI_RET_DENIED		(-3)
 
 #ifndef __ASSEMBLY__
+#include <asm/types.h>
+
+void psci_cpu_entry(void);
+u32 psci_get_cpu_id(void);
+u32 psci_get_cpu_stack_top(int cpu);
+void psci_cpu_off_common(void);
+
 int psci_update_dt(void *fdt);
 void psci_board_init(void);
 #endif /* ! __ASSEMBLY__ */
