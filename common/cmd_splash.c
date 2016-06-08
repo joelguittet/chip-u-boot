@@ -17,29 +17,39 @@
 static int do_num(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 {
 	printf("Number of splash images: %d\n", NUM_SPLASHES);
-	
+
 	return 0;
 }
 
 static int do_display(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 {
-	int splash_num = simple_strtoul(argv[1], NULL, 10);;
-	
-	if(splash_num<0 || splash_num>NUM_SPLASHES-1)
+	int splash_num = simple_strtoul(argv[1], NULL, 10);
+
+	if (splash_num < 0 || splash_num > NUM_SPLASHES-1)
 	{
 		splash_num = 0;
 	}
-	
+
 	video_display_splash(splash_num);
-		
+	
 	return 0;
 }
 
 static cmd_tbl_t cmd_splash_sub[] = {
-        U_BOOT_CMD_MKENT(num, 0, 1, do_num, "", ""),
-        U_BOOT_CMD_MKENT(display, 1, 1, do_display, "", ""),
+		U_BOOT_CMD_MKENT(num, 0, 1, do_num, "", ""),
+		U_BOOT_CMD_MKENT(display, 1, 1, do_display, "", ""),
 };
 
+/*
+ * Subroutine:  do_splash
+ *
+ * Description: Handler for 'splash' command..
+ *
+ * Inputs:	argv[1] contains the subcommand
+ *
+ * Return:      None
+ *
+ */
 static int do_splash(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 {
 	cmd_tbl_t *c;
@@ -51,7 +61,8 @@ static int do_splash(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 	argc--;
 	argv++;
 
-	c = find_cmd_tbl(argv[0], &cmd_splash_sub[0], ARRAY_SIZE(cmd_splash_sub));
+	c = find_cmd_tbl(argv[0], &cmd_splash_sub[0],
+						ARRAY_SIZE(cmd_splash_sub));
 
 	if (c)
 		return c->cmd(cmdtp, flag, argc, argv);
@@ -60,9 +71,9 @@ static int do_splash(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 }
 
 U_BOOT_CMD(
-        splash, 4, 1, do_splash,
-        "splash sub-system",
-        "num - lists the number of splash images\n"
+		splash, 4, 1, do_splash,
+		"splash sub-system",
+		"num - lists the number of splash images\n"
 		"display  - display a splash image\n"
 );
 
