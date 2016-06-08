@@ -31,7 +31,8 @@ void get_bitmap_info(bitmap_t *b, FILE *fp);
 
 void print_header(int mode);
 void print_footer(int mode, int num_splashes);
-void print_bitmap_data(bitmap_t *b, FILE *fp, char * bmp_name);
-void print_bitmap_info(bitmap_t *b, char * bmp_name, int splash_num);
+void print_bitmap_data(bitmap_t *b, FILE *fp, char *bmp_name);
+void print_bitmap_info(bitmap_t *b, char *bmp_name, int splash_num);
 
 #endif /*__SPLASH_TOOL_H__ */
+

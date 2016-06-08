@@ -342,16 +342,16 @@ void print_bitmap_data(bitmap_t *b, FILE *fp, char *bmp_name) {
     printf("\n");
     printf("};\n");
     printf("\n");
-	//TODO: Get filename and replace below in bitmap variable
+
     printf("unsigned char %s[] = {\n", bmp_name);
-        for (i=(b->height-1)*b->width; i>=0; i-=b->width) {
+        for (i = (b->height-1)*b->width; i >= 0; i -= b->width) {
                 for (x = 0; x < b->width; x++) {
                         b->data[i + x] = (uint8_t) fgetc(fp)
                                                 + DEFAULT_CMAP_SIZE;
                 }
         }
 
-        for (i=0; i<(b->height*b->width); ++i) {
+        for (i = 0; i < (b->height*b->width); ++i) {
                 if ((i%8) == 0)
                         putchar ('\t');
                 printf ("0x%02X,%c",
@@ -363,8 +363,13 @@ void print_bitmap_data(bitmap_t *b, FILE *fp, char *bmp_name) {
     printf ("\n"
             "};\n\n"
     );
-        
-	printf("bmp_properties %s_prop = { .width = %d, .height = %d, .colors = %d, .offset = %d, .bit_count = %d, .compression = %d };\n\n",
-			bmp_name, b->width, b->height, b->n_colors, DEFAULT_CMAP_SIZE, b->bit_count, b->compression);
+ 
+	printf("bmp_properties %s_prop = {"
+		" .width = %d, .height = %d,"
+		" .colors = %d, .offset = %d,"
+		" .bit_count = %d, .compression = %d };\n\n",
+		bmp_name, b->width, b->height, b->n_colors, DEFAULT_CMAP_SIZE, 
+		b->bit_count, b->compression);
 
 }
+
