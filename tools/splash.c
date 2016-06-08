@@ -132,7 +132,7 @@ int main (int argc, char *argv[])
 	
 	print_header(mode);
 	
-    //print the filenames on the screen	
+    /* print the filenames on the screen */	
 	for (k=0;(k<i) && (k<20);k++) {
 		fprintf(stderr, "Processing: %s\n", FilenameArr[k]);
 	
@@ -158,7 +158,7 @@ int main (int argc, char *argv[])
 		
 		if (mode == MODE_GEN_DATA)
 		{
-			//Generate Bitmap Data
+			/* Generate Bitmap Data */
 			print_bitmap_data(b, fp, bmp_name);
 		}
 		fclose(fp);
@@ -172,7 +172,7 @@ int main (int argc, char *argv[])
 void get_bitmap_info(bitmap_t *b, FILE *fp)
 {
 
-	//Check if bitmap file
+		/* Check if bitmap file */
 		if (fgetc (fp) != 'B' || fgetc (fp) != 'M') {
                 fprintf(stderr, "%s\n", "Input file is not a bitmap");
                 exit(EXIT_FAILURE);
@@ -305,8 +305,6 @@ void print_bitmap_data(bitmap_t *b, FILE *fp, char *bmp_name) {
     /* allocate memory */
     if ((b->data = (uint8_t *)malloc(b->width * b->height)) == NULL)
     	perror("Error allocating memory for file");
-
-	//TODO: Get filename and replace below in platette variable
 
         /* read and print the palette information */
         printf("unsigned short %s_palette[] = {\n", bmp_name);
