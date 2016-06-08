@@ -46,38 +46,32 @@ int ends_with(const char* name, const char* extension, size_t length)
 char *remove_ext (char* mystr, char dot, char sep) {
     char *retstr, *lastdot, *lastsep;
 
-    // Error checks and allocate string.
-
+    /* Error checks and allocate string. */
     if (mystr == NULL)
         return NULL;
     if ((retstr = malloc (strlen (mystr) + 1)) == NULL)
         return NULL;
 
-    // Make a copy and find the relevant characters.
-
+    /* Make a copy and find the relevant characters. */
     strcpy (retstr, mystr);
     lastdot = strrchr (retstr, dot);
     lastsep = (sep == 0) ? NULL : strrchr (retstr, sep);
 
-    // If it has an extension separator.
-
+    /* If it has an extension separator. */
     if (lastdot != NULL) {
-        // and it's before the extenstion separator.
-
+        /* and it's before the extenstion separator. */
         if (lastsep != NULL) {
             if (lastsep < lastdot) {
-                // then remove it.
-
+                /* then remove it. */
                 *lastdot = '\0';
             }
         } else {
-            // Has extension separator with no path separator.
-
+            /* Has extension separator with no path separator. */
             *lastdot = '\0';
         }
     }
 
-    // Return the modified string.
+    /* Return the modified string. */
 
     return retstr;
 }
@@ -167,11 +161,11 @@ int main (int argc, char *argv[])
 			//Generate Bitmap Data
 			print_bitmap_data(b, fp, bmp_name);
 		}
+		fclose(fp);
 	}
 
 	print_footer(mode, k);	
-	
-	fclose(fp);
+
 	return 0;
 }
 
@@ -219,9 +213,6 @@ void get_bitmap_info(bitmap_t *b, FILE *fp)
         b->width = le_short(b->width);
         b->height = le_short(b->height);
         b->n_colors = le_short(b->n_colors);
-
-        fprintf(stderr, "Colors: %d\n", b->n_colors);
-        fprintf(stderr, "Offset: %d\n", b->data_offset);
 
         /* assume we are working with an 8-bit file */
         if ((b->n_colors == 0) || (b->n_colors > 256 - DEFAULT_CMAP_SIZE)) {
