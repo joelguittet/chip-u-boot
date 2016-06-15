@@ -477,7 +477,7 @@ bool ubi_conso_invalidate_leb(struct ubi_device *ubi, int pnum,
 		kfree(clebs);
 	}
 
-	return remaining;
+	return !remaining;
 }
 
 int ubi_conso_init(struct ubi_device *ubi)
