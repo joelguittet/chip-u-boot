@@ -327,6 +327,7 @@ static int h27q_init(struct mtd_info *mtd, const uint8_t *id)
 	if (ret)
 		kfree(hynix);
 
+	mtd->pairing = &dist3_pairing_scheme;
 	return ret;
 }
 
