@@ -46,7 +46,9 @@ int arch_fixup_fdt(void *blob)
 	if (ret)
 		return ret;
 
+#if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV8_PSCI)
 	ret = psci_update_dt(blob);
+#endif
 #endif
 	return ret;
 }
