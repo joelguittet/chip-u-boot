@@ -20,7 +20,7 @@
  */
 static bool work_suspended(struct ubi_device *ubi)
 {
-	return ubi->thread_suspended || !ubi->thread_enabled;
+	return false;
 }
 
 /**
@@ -57,6 +57,8 @@ void ubi_schedule_work(struct ubi_device *ubi, struct ubi_work *wrk)
 		wake_up_process(ubi->bgt_thread);
 	spin_unlock(&ubi->wl_lock);
 	mutex_unlock(&ubi->work_mutex);
+
+	do_work(ubi);
 }
 
 int ubi_schedule_work_sync(struct ubi_device *ubi, struct ubi_work *wrk)
