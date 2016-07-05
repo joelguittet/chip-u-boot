@@ -295,6 +295,11 @@ static struct ubi_wl_entry *find_mean_wl_entry(struct ubi_device *ubi,
 {
 	struct ubi_wl_entry *e, *first, *last;
 
+	ubi_assert(root->rb_node);
+
+	if (!root->rb_node)
+		return NULL;
+
 	first = rb_entry(rb_first(root), struct ubi_wl_entry, u.rb);
 	last = rb_entry(rb_last(root), struct ubi_wl_entry, u.rb);
 
@@ -483,9 +488,8 @@ repeat:
 static int erase_worker(struct ubi_device *ubi, struct ubi_work *wl_wrk,
 			int shutdown);
 
-static struct ubi_work *ubi_alloc_erase_work(struct ubi_device *ubi,
-					     struct ubi_wl_entry *e,
-					     int torture)
+struct ubi_work *ubi_alloc_erase_work(struct ubi_device *ubi,
+				      struct ubi_wl_entry *e, int torture)
 {
 	struct ubi_work *wl_wrk;
 
@@ -512,11 +516,12 @@ static struct ubi_work *ubi_alloc_erase_work(struct ubi_device *ubi,
  * failure.
  */
 static int schedule_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
-			  int torture)
+			  int torture, bool nested)
 {
 	struct ubi_work *wl_wrk;
 
 	ubi_assert(e);
+	ubi_assert(!ubi->consolidated || !ubi->consolidated[e->pnum]);
 
 	dbg_wl("schedule erasure of PEB %d, EC %d, torture %d",
 	       e->pnum, e->ec, torture);
@@ -552,6 +557,7 @@ static int do_sync_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
 	if (!wl_wrk)
 		return -ENOMEM;
 
+	INIT_LIST_HEAD(&wl_wrk->list);
 	wl_wrk->e = e;
 	wl_wrk->torture = torture;
 
@@ -578,6 +584,7 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 #endif
 	struct ubi_wl_entry *e1, *e2;
 	struct ubi_vid_hdr *vid_hdr;
+	int nvidh = ubi->lebs_per_cpeb;
 
 	if (shutdown)
 		return 0;
@@ -679,7 +686,7 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 	 * which is being moved was unmapped.
 	 */
 
-	err = ubi_io_read_vid_hdr(ubi, e1->pnum, vid_hdr, 0);
+	err = ubi_io_read_vid_hdrs(ubi, e1->pnum, vid_hdr, &nvidh, 0);
 	if (err && err != UBI_IO_BITFLIPS) {
 		if (err == UBI_IO_FF) {
 			/*
@@ -712,7 +719,11 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 		goto out_error;
 	}
 
-	err = ubi_eba_copy_leb(ubi, e1->pnum, e2->pnum, vid_hdr);
+	if (ubi->consolidated && ubi->consolidated[e1->pnum])
+		err = ubi_eba_copy_lebs(ubi, e1->pnum, e2->pnum, vid_hdr, nvidh);
+	else
+		err = ubi_eba_copy_leb(ubi, e1->pnum, e2->pnum, vid_hdr);
+
 	if (err) {
 		if (err == MOVE_CANCEL_RACE) {
 			/*
@@ -903,7 +914,7 @@ static int ensure_wear_leveling(struct ubi_device *ubi)
 	ubi->wl_scheduled = 1;
 	spin_unlock(&ubi->wl_lock);
 
-	wrk = kmalloc(sizeof(struct ubi_work), GFP_NOFS);
+	wrk = ubi_alloc_work(ubi);
 	if (!wrk) {
 		err = -ENOMEM;
 		goto out_cancel;
@@ -976,7 +987,7 @@ static int erase_worker(struct ubi_device *ubi, struct ubi_work *wl_wrk,
 		int err1;
 
 		/* Re-schedule the LEB for erasure */
-		err1 = schedule_erase(ubi, e, 0);
+		err1 = schedule_erase(ubi, e, 0, true);
 		if (err1) {
 			err = err1;
 			goto out_ro;
@@ -1068,10 +1079,12 @@ int ubi_wl_put_peb(struct ubi_device *ubi, int pnum, int torture)
 {
 	int err;
 	struct ubi_wl_entry *e;
+	struct ubi_work *wrk;
 
 	dbg_wl("PEB %d", pnum);
 	ubi_assert(pnum >= 0);
 	ubi_assert(pnum < ubi->peb_count);
+	ubi_assert(!ubi->consolidated || !ubi->consolidated[pnum]);
 
 	down_read(&ubi->fm_protect);
 
@@ -1134,15 +1147,20 @@ retry:
 	}
 	spin_unlock(&ubi->wl_lock);
 
-	err = schedule_erase(ubi, e, torture);
-	if (err) {
+	wrk = ubi_alloc_erase_work(ubi, e, torture);
+	if (!wrk) {
 		spin_lock(&ubi->wl_lock);
 		wl_tree_add(e, &ubi->used);
 		spin_unlock(&ubi->wl_lock);
 	}
-
 	up_read(&ubi->fm_protect);
-	return err;
+
+	if (!wrk)
+		return -ENOMEM;
+
+	ubi_schedule_work(ubi, wrk);
+
+	return 0;
 }
 
 /**
@@ -1253,8 +1271,10 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	int err, i, reserved_pebs, found_pebs = 0;
 	struct rb_node *rb1, *rb2;
 	struct ubi_ainf_volume *av;
-	struct ubi_ainf_peb *aeb, *tmp;
+	struct ubi_ainf_leb *leb;
+	struct ubi_ainf_peb *peb, *tmp;
 	struct ubi_wl_entry *e;
+	struct ubi_leb_desc *clebs;
 
 	ubi->used = ubi->erroneous = ubi->free = ubi->scrub = RB_ROOT;
 	spin_lock_init(&ubi->wl_lock);
@@ -1270,21 +1290,31 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	if (!ubi->lookuptbl)
 		return err;
 
+	if (ubi->lebs_per_cpeb > 1) {
+		ubi->consolidated = kzalloc(ubi->peb_count * sizeof(void *),
+					    GFP_KERNEL);
+		if (!ubi->consolidated) {
+			kfree(ubi->lookuptbl);
+			return err;
+		}
+	}
+
 	for (i = 0; i < UBI_PROT_QUEUE_LEN; i++)
 		INIT_LIST_HEAD(&ubi->pq[i]);
 	ubi->pq_head = 0;
 
-	list_for_each_entry_safe(aeb, tmp, &ai->erase, u.list) {
+	ubi->free_count = 0;
+	list_for_each_entry_safe(peb, tmp, &ai->erase, list) {
 		cond_resched();
 
 		e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
 		if (!e)
 			goto out_free;
 
-		e->pnum = aeb->pnum;
-		e->ec = aeb->ec;
+		e->pnum = peb->pnum;
+		e->ec = peb->ec;
 		ubi->lookuptbl[e->pnum] = e;
-		if (schedule_erase(ubi, e, 0)) {
+		if (schedule_erase(ubi, e, 0, false)) {
 			wl_entry_destroy(ubi, e);
 			goto out_free;
 		}
@@ -1292,16 +1322,18 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		found_pebs++;
 	}
 
-	ubi->free_count = 0;
-	list_for_each_entry(aeb, &ai->free, u.list) {
+	list_for_each_entry_safe(peb, tmp, &ai->free, list) {
 		cond_resched();
+
+		if (ubi->lookuptbl[peb->pnum])
+			continue;
 
 		e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
 		if (!e)
 			goto out_free;
 
-		e->pnum = aeb->pnum;
-		e->ec = aeb->ec;
+		e->pnum = peb->pnum;
+		e->ec = peb->ec;
 		ubi_assert(e->ec >= 0);
 
 		wl_tree_add(e, &ubi->free);
@@ -1312,29 +1344,54 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		found_pebs++;
 	}
 
-	ubi_rb_for_each_entry(rb1, av, &ai->volumes, rb) {
-		ubi_rb_for_each_entry(rb2, aeb, &av->root, u.rb) {
-			cond_resched();
+	list_for_each_entry(peb, &ai->used, list) {
+		e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
+		if (!e)
+			goto out_free;
 
-			e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
-			if (!e)
+		e->pnum = peb->pnum;
+		e->ec = peb->ec;
+		ubi->lookuptbl[e->pnum] = e;
+
+		if (!peb->scrub) {
+			dbg_wl("add PEB %d EC %d to the used tree",
+			       e->pnum, e->ec);
+			wl_tree_add(e, &ubi->used);
+		} else {
+			dbg_wl("add PEB %d EC %d to the scrub tree",
+			       e->pnum, e->ec);
+			wl_tree_add(e, &ubi->scrub);
+		}
+
+		if (peb->consolidated) {
+			int i;
+
+			clebs = kmalloc(sizeof(*clebs) *
+					ubi->lebs_per_cpeb,
+					GFP_KERNEL);
+			if (!clebs)
 				goto out_free;
 
-			e->pnum = aeb->pnum;
-			e->ec = aeb->ec;
-			ubi->lookuptbl[e->pnum] = e;
-
-			if (!aeb->scrub) {
-				dbg_wl("add PEB %d EC %d to the used tree",
-				       e->pnum, e->ec);
-				wl_tree_add(e, &ubi->used);
-			} else {
-				dbg_wl("add PEB %d EC %d to the scrub tree",
-				       e->pnum, e->ec);
-				wl_tree_add(e, &ubi->scrub);
+			for (i = 0; i < ubi->lebs_per_cpeb; i++) {
+				clebs[i].lnum = -1;
+				clebs[i].vol_id = -1;
 			}
 
-			found_pebs++;
+			ubi->consolidated[peb->pnum] = clebs;
+		}
+
+		found_pebs++;
+	}
+
+	ubi_rb_for_each_entry(rb1, av, &ai->volumes, rb) {
+		ubi_rb_for_each_entry(rb2, leb, &av->root, rb) {
+			cond_resched();
+
+			if (ubi->lebs_per_cpeb > 1) {
+				clebs = ubi->consolidated[leb->peb->pnum];
+				if (clebs)
+					clebs[leb->peb_pos] = leb->desc;
+			}
 		}
 	}
 
@@ -1378,6 +1435,7 @@ out_free:
 	tree_destroy(ubi, &ubi->used);
 	tree_destroy(ubi, &ubi->free);
 	tree_destroy(ubi, &ubi->scrub);
+	kfree(ubi->consolidated);
 	kfree(ubi->lookuptbl);
 	return err;
 }
@@ -1414,6 +1472,7 @@ void ubi_wl_close(struct ubi_device *ubi)
 	tree_destroy(ubi, &ubi->free);
 	tree_destroy(ubi, &ubi->scrub);
 	kfree(ubi->lookuptbl);
+	kfree(ubi->consolidated);
 }
 
 /**
@@ -1511,10 +1570,23 @@ static int self_check_in_pq(const struct ubi_device *ubi,
 	dump_stack();
 	return -EINVAL;
 }
+
+static bool enough_free_pebs(struct ubi_device *ubi)
+{
+	/*
+	 * Hold back one PEB for the producing case,
+	 * currently only for consolidation.
+	 */
+	return ubi->free_count > UBI_CONSO_RESERVED_PEBS;
+}
+
 #ifndef CONFIG_MTD_UBI_FASTMAP
 static struct ubi_wl_entry *get_peb_for_wl(struct ubi_device *ubi)
 {
 	struct ubi_wl_entry *e;
+
+	if (!enough_free_pebs(ubi))
+		return NULL;
 
 	e = find_wl_entry(ubi, &ubi->free, WL_FREE_MAX_DIFF);
 	self_check_in_wl_tree(ubi, e, &ubi->free);
@@ -1536,8 +1608,10 @@ static struct ubi_wl_entry *get_peb_for_wl(struct ubi_device *ubi)
  */
 static int produce_free_peb(struct ubi_device *ubi)
 {
-	while (!ubi->free.rb_node) {
+	while (!enough_free_pebs(ubi)) {
 		spin_unlock(&ubi->wl_lock);
+
+		ubi_eba_consolidate(ubi);
 
 		dbg_wl("do one work synchronously");
 		if (!ubi_work_join_one(ubi)) {
@@ -1555,40 +1629,50 @@ static int produce_free_peb(struct ubi_device *ubi)
 /**
  * ubi_wl_get_peb - get a physical eraseblock.
  * @ubi: UBI device description object
+ * @producing: true if this function is being called from a context
+ * which is trying to produce more free PEBs but needs a new one to
+ * achieve that. i.e. consolidatation work.
  *
  * This function returns a physical eraseblock in case of success and a
  * negative error code in case of failure.
  * Returns with ubi->fm_eba_sem held in read mode!
  */
-int ubi_wl_get_peb(struct ubi_device *ubi)
+int ubi_wl_get_peb(struct ubi_device *ubi, bool producing)
 {
-	int err;
+	int err = 0;
 	struct ubi_wl_entry *e;
 
 retry:
 	down_read(&ubi->fm_eba_sem);
 	spin_lock(&ubi->wl_lock);
-	if (!ubi->free.rb_node) {
-		if (ubi->works_count == 0) {
-			ubi_err(ubi, "no free eraseblocks");
-			ubi_assert(list_empty(&ubi->works));
-			spin_unlock(&ubi->wl_lock);
-			return -ENOSPC;
-		}
 
+	if (!enough_free_pebs(ubi) && !producing) {
 		err = produce_free_peb(ubi);
 		if (err < 0) {
+			ubi_err(ubi, "unable to produce free eraseblocks: %i", err);
 			spin_unlock(&ubi->wl_lock);
 			return err;
 		}
 		spin_unlock(&ubi->wl_lock);
 		up_read(&ubi->fm_eba_sem);
 		goto retry;
-
 	}
+	else if (!ubi->free_count && producing) {
+		ubi_err(ubi, "no free eraseblocks in producing case");
+		ubi_assert(0);
+		spin_unlock(&ubi->wl_lock);
+		return -ENOSPC;
+	}
+
 	e = wl_get_wle(ubi);
-	prot_queue_add(ubi, e);
+	if (e)
+		prot_queue_add(ubi, e);
+	else
+		err = -ENOSPC;
 	spin_unlock(&ubi->wl_lock);
+
+	if (err)
+		return err;
 
 	err = ubi_self_check_all_ff(ubi, e->pnum, ubi->vid_hdr_aloffset,
 				    ubi->peb_size - ubi->vid_hdr_aloffset);
