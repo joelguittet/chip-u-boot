@@ -83,6 +83,15 @@ struct kmem_cache { int sz; };
 struct kmem_cache *get_mem(int element_sz);
 #define kmem_cache_create(a, sz, c, d, e)	get_mem(sz)
 void *kmem_cache_alloc(struct kmem_cache *obj, int flag);
+static inline void *kmem_cache_zalloc(struct kmem_cache *obj, int flag)
+{
+	void *ret = kmem_cache_alloc(obj, flag);
+
+	if (ret)
+		memset(ret, 0, obj->sz);
+
+	return ret;
+}
 static inline void kmem_cache_free(struct kmem_cache *cachep, void *obj)
 {
 	free(obj);
