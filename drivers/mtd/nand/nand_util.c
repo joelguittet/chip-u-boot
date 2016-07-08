@@ -645,10 +645,10 @@ int nand_write_skip_bad(nand_info_t *nand, loff_t offset, size_t *length,
 			continue;
 		}
 
-		if (left_to_write < (blocksize - block_offset))
+		if (left_to_write < nand->writesize)
 			write_size = left_to_write;
 		else
-			write_size = blocksize - block_offset;
+			write_size = nand->writesize;
 
 		truncated_write_size = write_size;
 #ifdef CONFIG_CMD_NAND_TRIMFFS
