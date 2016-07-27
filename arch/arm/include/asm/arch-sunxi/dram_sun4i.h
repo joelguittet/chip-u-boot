@@ -137,6 +137,7 @@ struct dram_para {
 #define DRAM_DRR_TRFC(n) ((n) & 0xff)
 #define DRAM_DRR_TREFI(n) (((n) & 0xffff) << 8)
 #define DRAM_DRR_BURST(n) ((((n) - 1) & 0xf) << 24)
+#define DRAM_DRR_AUTO_REFRESH_OFF (0x1 << 31)
 
 #define DRAM_MCR_MODE_NORM(n) (((n) & 0x3) << 0)
 #define DRAM_MCR_MODE_NORM_MASK DRAM_MCR_MOD_NORM(0x3)
@@ -175,6 +176,8 @@ struct dram_para {
 #define DRAM_MR_POWER_DOWN (0x1 << 12)
 
 #define DRAM_CSEL_MAGIC 0x16237495
+
+#define DRAM_HPCR_PORT_EN 0x1
 
 unsigned long dramc_init(struct dram_para *para);
 
