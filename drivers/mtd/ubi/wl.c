@@ -549,19 +549,15 @@ static int schedule_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
 static int do_sync_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
 			 int torture)
 {
-	struct ubi_work *wl_wrk;
+	struct ubi_work wl_wrk;
 
 	dbg_wl("sync erase of PEB %i", e->pnum);
 
-	wl_wrk = ubi_alloc_work(ubi);
-	if (!wl_wrk)
-		return -ENOMEM;
+	INIT_LIST_HEAD(&wl_wrk.list);
+	wl_wrk.e = e;
+	wl_wrk.torture = torture;
 
-	INIT_LIST_HEAD(&wl_wrk->list);
-	wl_wrk->e = e;
-	wl_wrk->torture = torture;
-
-	return erase_worker(ubi, wl_wrk, 0);
+	return erase_worker(ubi, &wl_wrk, 0);
 }
 
 /**
