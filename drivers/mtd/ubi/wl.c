@@ -98,9 +98,6 @@
 #include "ubi.h"
 #include "wl.h"
 
-/* Number of physical eraseblocks reserved for wear-leveling purposes */
-#define WL_RESERVED_PEBS 1
-
 /*
  * Maximum difference between two erase counters. If this threshold is
  * exceeded, the WL sub-system starts moving data from used physical
@@ -1405,7 +1402,7 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	else
 		ubi_assert(ubi->good_peb_count == found_pebs);
 
-	reserved_pebs = WL_RESERVED_PEBS;
+	reserved_pebs = UBI_WL_RESERVED_PEBS;
 	ubi_fastmap_init(ubi, &reserved_pebs);
 
 	if (ubi->avail_pebs < reserved_pebs) {
