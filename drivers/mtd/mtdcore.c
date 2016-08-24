@@ -1212,8 +1212,6 @@ EXPORT_SYMBOL_GPL(mtd_block_isbad);
 
 int mtd_block_markbad(struct mtd_info *mtd, loff_t ofs)
 {
-	WARN_ON(1);
-
 	if (!mtd->_block_markbad)
 		return -EOPNOTSUPP;
 	if (ofs < 0 || ofs > mtd->size)
