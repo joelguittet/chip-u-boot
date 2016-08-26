@@ -56,8 +56,9 @@ static char dip_name[64];
 
 static void dip_setup_pocket_display(enum disp_output display)
 {
-	char *env_var;
+	char video[128];
 	char *s;
+	int x, y;
 
 	s = getenv("dip-auto-video");
 	if (s && !strcmp(s, "no")) {
@@ -67,23 +68,44 @@ static void dip_setup_pocket_display(enum disp_output display)
 
 	switch (display) {
 	case DISPLAY_RGB_HDMI_BRIDGE:
-		env_var = "sunxi:1024x768-24@60,monitor=hdmi";
+		strncpy(video, "sunxi:1024x768-24@60,monitor=hdmi",
+			sizeof(video));
 		break;
 
 	case DISPLAY_RGB_VGA_BRIDGE:
-		env_var = "sunxi:1024x768-24@60,monitor=vga";
+		strncpy(video, "sunxi:1024x768-24@60,monitor=vga",
+			sizeof(video));
 		break;
 
 	case DISPLAY_RGB_POCKET:
-		env_var = "sunxi:480x272-16@60,monitor=lcd";
+		strncpy(video, "sunxi:480x272-16@60,monitor=lcd",
+			sizeof(video));
 		break;
 
 	default:
-		env_var = "sunxi:720x480-24@60,monitor=composite-ntsc,overscan_x=40,overscan_y=20";
+		s = getenv("tv-mode");
+		if (!s)
+			s = "ntsc";
+
+		if (!strcmp(s, "ntsc")) {
+			x = 720;
+			y = 480;
+		} else if (!strcmp(s, "pal")) {
+			x = 720;
+			y = 576;
+		} else {
+			printf("DIP: Unknown TV format: %s\n", s);
+			return;
+		}
+
+		snprintf(video, sizeof(video),
+			 "sunxi:%dx%d-24@60,monitor=composite-%s,overscan_x=40,overscan_y=20",
+			 x, y, s);
+
 		break;
 	}
 
-	setenv("video-mode", env_var);
+	setenv("video-mode", video);
 }
 
 static void dip_detect(void)
