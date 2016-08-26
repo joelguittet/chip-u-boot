@@ -56,8 +56,9 @@ static char dip_name[64];
 
 static void dip_setup_pocket_display(enum disp_output display)
 {
+	char kernel[128];
 	char video[128];
-	char *s;
+	char *s, *kmode;
 	int x, y;
 
 	s = getenv("dip-auto-video");
@@ -68,11 +69,13 @@ static void dip_setup_pocket_display(enum disp_output display)
 
 	switch (display) {
 	case DISPLAY_RGB_HDMI_BRIDGE:
+		strncpy(kernel, "video=HDMI-A-1:1024x768@60", sizeof(kernel));
 		strncpy(video, "sunxi:1024x768-24@60,monitor=hdmi",
 			sizeof(video));
 		break;
 
 	case DISPLAY_RGB_VGA_BRIDGE:
+		strncpy(kernel, "video=VGA-1:1024x768@60", sizeof(kernel));
 		strncpy(video, "sunxi:1024x768-24@60,monitor=vga",
 			sizeof(video));
 		break;
@@ -90,14 +93,18 @@ static void dip_setup_pocket_display(enum disp_output display)
 		if (!strcmp(s, "ntsc")) {
 			x = 720;
 			y = 480;
+			kmode = "NTSC";
 		} else if (!strcmp(s, "pal")) {
 			x = 720;
 			y = 576;
+			kmode = "PAL";
 		} else {
 			printf("DIP: Unknown TV format: %s\n", s);
 			return;
 		}
 
+		snprintf(kernel, sizeof(kernel), "video=Composite-1:%s5",
+			 kmode);
 		snprintf(video, sizeof(video),
 			 "sunxi:%dx%d-24@60,monitor=composite-%s,overscan_x=40,overscan_y=20",
 			 x, y, s);
@@ -105,6 +112,7 @@ static void dip_setup_pocket_display(enum disp_output display)
 		break;
 	}
 
+	setenv("kernelarg_video", kernel);
 	setenv("video-mode", video);
 }
 
@@ -155,12 +163,10 @@ static void dip_detect(void)
 				break;
 
 			case DIP_PID_NTC_HDMI:
-				setenv("kernelarg_video", "video=HDMI-A-1:1024x768@60");
 				display = DISPLAY_RGB_HDMI_BRIDGE;
 				break;
 
 			case DIP_PID_NTC_VGA:
-				setenv("kernelarg_video", "video=VGA-1:1024x768@60");
 				display = DISPLAY_RGB_VGA_BRIDGE;
 				break;
 			}
