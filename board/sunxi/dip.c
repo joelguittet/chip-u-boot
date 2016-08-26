@@ -45,6 +45,11 @@ struct dip_header {
 	u8      data[16];               /* user data, per-dip specific */
 } __packed;
 
+struct dip {
+	struct list_head	list;
+	char			file[64];
+};
+
 enum disp_output {
 	DISPLAY_COMPOSITE,
 	DISPLAY_RGB_HDMI_BRIDGE,
@@ -52,7 +57,7 @@ enum disp_output {
 	DISPLAY_RGB_POCKET,
 };
 
-static char dip_name[64];
+static LIST_HEAD(dip_list);
 
 static void dip_setup_pocket_display(enum disp_output display)
 {
@@ -131,6 +136,7 @@ static void dip_detect(void)
 	for (device_find_first_child(bus, &dev); dev;
 	     device_find_next_child(&dev)) {
 		struct dip_header header;
+		struct dip *dip;
 
 		if (w1_get_device_family(dev) != W1_FAMILY_DS2431)
 			continue;
@@ -154,7 +160,13 @@ static void dip_detect(void)
 		       header.product_name, pid,
 		       header.vendor_name, vid);
 
-		snprintf(dip_name, 64, "dip-%x-%x.dtbo", vid, pid);
+		dip = calloc(sizeof(*dip), 1);
+		if (!dip)
+			return;
+
+		snprintf(dip->file, sizeof(dip->file), "dip-%x-%x.dtbo",
+			 vid, pid);
+		list_add_tail(&dip->list, &dip_list);
 
 		if (vid == DIP_VID_NTC) {
 			switch (pid) {
@@ -185,6 +197,7 @@ int board_video_pre_init(void)
 
 int chip_dip_dt_setup(void)
 {
+	struct dip *dip, *next;
 	int ret;
 	char *cmd;
 
@@ -192,10 +205,23 @@ int chip_dip_dt_setup(void)
 	if (!cmd)
 		return 0;
 
-	setenv("dip_overlay_name", dip_name);
-	ret = run_command(cmd, 0);
-	if (ret)
-		return 0;
+	list_for_each_entry_safe(dip, next, &dip_list, list) {
+		printf("DIP: Applying dip overlay %s\n", dip->file);
+		setenv("dip_overlay_name", dip->file);
+		ret = run_command(cmd, 0);
 
-	return run_command("fdt apply $dip_addr_r", 0);
+		/* First remove the item from the list */
+		list_del(&dip->list);
+		free(dip);
+
+		/* And then check if there was an error */
+		if (ret)
+			continue;
+
+		ret = run_command("fdt apply $dip_addr_r", 0);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
