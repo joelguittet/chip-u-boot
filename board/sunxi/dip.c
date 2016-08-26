@@ -57,6 +57,13 @@ static char dip_name[64];
 static void dip_setup_pocket_display(enum disp_output display)
 {
 	char *env_var;
+	char *s;
+
+	s = getenv("dip-auto-video");
+	if (s && !strcmp(s, "no")) {
+		printf("DIP: User disabled auto setup. Aborting.\n");
+		return;
+	}
 
 	switch (display) {
 	case DISPLAY_RGB_HDMI_BRIDGE:
