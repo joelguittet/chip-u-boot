@@ -1363,7 +1363,11 @@ void *video_hw_init(void)
 	int i, overscan_offset, overscan_x, overscan_y;
 	unsigned int fb_dma_addr;
 	char mon[16];
-	char *lcd_mode = CONFIG_VIDEO_LCD_MODE;
+	char *lcd_mode;
+
+	lcd_mode = getenv("video-timings");
+	if (!lcd_mode)
+		lcd_mode = CONFIG_VIDEO_LCD_MODE;
 
 	memset(&sunxi_display, 0, sizeof(struct sunxi_display));
 
