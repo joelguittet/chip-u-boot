@@ -140,6 +140,31 @@ int axp_set_aldo4(unsigned int mvolt)
 	return pmic_bus_setbits(AXP209_OUTPUT_CTRL, AXP209_OUTPUT_CTRL_LDO4);
 }
 
+int axp_get_fuel_gauge()
+{
+        int rc = 0, percent = 0;
+        u8 reg;
+        
+        rc = pmic_bus_read(AXP209_FUEL_GAUGE, &reg);
+        if (rc)
+                return rc;               
+           
+        if (reg & 0x80)
+        {
+                printf("Fuel Gauge: Suspended\n");
+                return -1;
+        }
+        
+        if ((reg >= 0x00) & (reg <= 0x7F))
+        {
+                percent = (((float)reg / 127) * 100);
+        }
+        
+        return percent;
+}
+
+
+
 int axp_init(void)
 {
 	u8 ver;
