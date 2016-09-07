@@ -475,11 +475,6 @@ void sunxi_board_init(void)
 		printf("FEL Jumper Set!\n");
 	}
 
-	printf("Setting No Current Limit on VBUS!\n");
-	rc = axp_set_no_limit();
-	if (rc)
-		printf("Error setting No Limit!");
-
 	int fuel_gauge;
 	rc = axp_get_fuel_gauge(&fuel_gauge);
 	if (rc)
