@@ -34,8 +34,13 @@ int axp_set_dldo2(unsigned int mvolt);
 int axp_set_dldo3(unsigned int mvolt);
 int axp_set_dldo4(unsigned int mvolt);
 int axp_set_eldo(int eldo_num, unsigned int mvolt);
+int axp_set_no_limit(void);
 int axp_init(void);
-int axp_get_fuel_gauge(void);
+int axp_get_fuel_gauge(int * fuel_gauge);
+int axp_is_powered(bool * ispowered);
+int axp_is_battery_connected(bool * isconnected);
+int axp_get_battery_voltage(u16 * batt_voltage);
+int axp_shutdown(void);
 int axp_get_sid(unsigned int *sid);
 
 #endif
