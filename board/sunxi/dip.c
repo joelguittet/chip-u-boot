@@ -45,6 +45,11 @@ struct dip_header {
 	u8      data[16];               /* user data, per-dip specific */
 } __packed;
 
+struct dip {
+	struct list_head	list;
+	char			file[64];
+};
+
 enum disp_output {
 	DISPLAY_COMPOSITE,
 	DISPLAY_RGB_HDMI_BRIDGE,
@@ -52,31 +57,68 @@ enum disp_output {
 	DISPLAY_RGB_POCKET,
 };
 
-static char dip_name[64];
+static LIST_HEAD(dip_list);
 
 static void dip_setup_pocket_display(enum disp_output display)
 {
-	char *env_var;
+	char kernel[128];
+	char video[128];
+	char *s, *kmode;
+	int x, y;
+
+	s = getenv("dip-auto-video");
+	if (s && !strcmp(s, "no")) {
+		printf("DIP: User disabled auto setup. Aborting.\n");
+		return;
+	}
 
 	switch (display) {
 	case DISPLAY_RGB_HDMI_BRIDGE:
-		env_var = "sunxi:1024x768-24@60,monitor=hdmi";
+		strncpy(kernel, "video=HDMI-A-1:1024x768@60", sizeof(kernel));
+		strncpy(video, "sunxi:1024x768-24@60,monitor=hdmi",
+			sizeof(video));
 		break;
 
 	case DISPLAY_RGB_VGA_BRIDGE:
-		env_var = "sunxi:1024x768-24@60,monitor=vga";
+		strncpy(kernel, "video=VGA-1:1024x768@60", sizeof(kernel));
+		strncpy(video, "sunxi:1024x768-24@60,monitor=vga",
+			sizeof(video));
 		break;
 
 	case DISPLAY_RGB_POCKET:
-		env_var = "sunxi:480x272-16@60,monitor=lcd";
+		strncpy(video, "sunxi:480x272-16@60,monitor=lcd",
+			sizeof(video));
 		break;
 
 	default:
-		env_var = "sunxi:720x480-24@60,monitor=composite-ntsc,overscan_x=40,overscan_y=20";
+		s = getenv("tv-mode");
+		if (!s)
+			s = "ntsc";
+
+		if (!strcmp(s, "ntsc")) {
+			x = 720;
+			y = 480;
+			kmode = "NTSC";
+		} else if (!strcmp(s, "pal")) {
+			x = 720;
+			y = 576;
+			kmode = "PAL";
+		} else {
+			printf("DIP: Unknown TV format: %s\n", s);
+			return;
+		}
+
+		snprintf(kernel, sizeof(kernel), "video=Composite-1:%s5",
+			 kmode);
+		snprintf(video, sizeof(video),
+			 "sunxi:%dx%d-24@60,monitor=composite-%s,overscan_x=40,overscan_y=20",
+			 x, y, s);
+
 		break;
 	}
 
-	setenv("video-mode", env_var);
+	setenv("kernelarg_video", kernel);
+	setenv("video-mode", video);
 }
 
 static void dip_detect(void)
@@ -94,6 +136,7 @@ static void dip_detect(void)
 	for (device_find_first_child(bus, &dev); dev;
 	     device_find_next_child(&dev)) {
 		struct dip_header header;
+		struct dip *dip;
 
 		if (w1_get_device_family(dev) != W1_FAMILY_DS2431)
 			continue;
@@ -117,7 +160,13 @@ static void dip_detect(void)
 		       header.product_name, pid,
 		       header.vendor_name, vid);
 
-		snprintf(dip_name, 64, "dip-%x-%x.dtbo", vid, pid);
+		dip = calloc(sizeof(*dip), 1);
+		if (!dip)
+			return;
+
+		snprintf(dip->file, sizeof(dip->file), "dip-%x-%x.dtbo",
+			 vid, pid);
+		list_add_tail(&dip->list, &dip_list);
 
 		if (vid == DIP_VID_NTC) {
 			switch (pid) {
@@ -126,12 +175,10 @@ static void dip_detect(void)
 				break;
 
 			case DIP_PID_NTC_HDMI:
-				setenv("kernelarg_video", "video=HDMI-A-1:1024x768@60");
 				display = DISPLAY_RGB_HDMI_BRIDGE;
 				break;
 
 			case DIP_PID_NTC_VGA:
-				setenv("kernelarg_video", "video=VGA-1:1024x768@60");
 				display = DISPLAY_RGB_VGA_BRIDGE;
 				break;
 			}
@@ -150,6 +197,7 @@ int board_video_pre_init(void)
 
 int chip_dip_dt_setup(void)
 {
+	struct dip *dip, *next;
 	int ret;
 	char *cmd;
 
@@ -157,10 +205,23 @@ int chip_dip_dt_setup(void)
 	if (!cmd)
 		return 0;
 
-	setenv("dip_overlay_name", dip_name);
-	ret = run_command(cmd, 0);
-	if (ret)
-		return 0;
+	list_for_each_entry_safe(dip, next, &dip_list, list) {
+		printf("DIP: Applying dip overlay %s\n", dip->file);
+		setenv("dip_overlay_name", dip->file);
+		ret = run_command(cmd, 0);
 
-	return run_command("fdt apply $dip_addr_r", 0);
+		/* First remove the item from the list */
+		list_del(&dip->list);
+		free(dip);
+
+		/* And then check if there was an error */
+		if (ret)
+			continue;
+
+		ret = run_command("fdt apply $dip_addr_r", 0);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
