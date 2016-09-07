@@ -228,7 +228,7 @@ int axp_is_battery_connected(bool *isconnected)
                 printf("ERROR cannot read from AXP209!\n");
                 return 1;
         }
-        if (val >= 500) {
+        if (val >= 2500) {
                 * isconnected = true;
         }
         else {
