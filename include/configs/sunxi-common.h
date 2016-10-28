@@ -545,6 +545,40 @@ extern int soft_i2c_gpio_scl;
 	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),-(UBI)\0" \
 	BOOTENV
 
+#ifdef CONFIG_CHIPPRO_BOOT_FAST
+#undef BOOT_TARGET_DEVICES
+#define BOOT_TARGET_DEVICES(func) \
+        "mount_ubi read_ubi boot_kernel\0" \
+        "bootcmd=run distro_bootcmd\0" \
+        "bootcmd_boot_kernel=bootz 0x42000000 - 0x43000000\0" \
+        "bootcmd_mount_ubi=ubi part UBI\0" \
+        "bootcmd_read_ubi=ubi read $kernel_addr_r kernel; ubi read $fdt_addr_r fdt\0
+
+#undef CONFIG_EXTRA_ENV_SETTINGS
+#define CONFIG_EXTRA_ENV_SETTINGS \
+	CONSOLE_ENV_SETTINGS \
+	MEM_LAYOUT_ENV_SETTINGS \
+	DFU_ALT_INFO_RAM \
+	"fdtfile=" CONFIG_DEFAULT_DEVICE_TREE ".dtb\0" \
+	"console=ttyS0,115200\0" \
+	"usbnet_devaddr=de:ad:be:af:00:01\0" \
+	BOOTCMD_SUNXI_COMPAT \
+	"usbnet_devaddr=de:ad:be:af:00:01\0" \
+	"mtdids=nand0=sunxi-nand.0\0" \
+	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),16m(UBI)\0" \
+	"distro_bootcmd=for target in ${boot_targets}; do run bootcmd_${target}; done\0" \
+	"bootargs=lpj=5009408 quiet ubi.fm_autoconvert=1\0" \
+	"bootdelay=1\0" \
+	"verify=n\0" \
+	"silent=1\0" \
+	BOOTENV
+
+#define CONFIG_SILENT_CONSOLE
+#define CONFIG_SYS_DEVICE_NULLDEV
+#define CONFIG_SILENT_CONSOLE_UPDATE_ON_RELOC
+
+#endif
+
 #else /* ifndef CONFIG_SPL_BUILD */
 #define CONFIG_EXTRA_ENV_SETTINGS
 #endif
