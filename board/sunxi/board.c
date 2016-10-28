@@ -1,4 +1,8 @@
 /*
+ * Copyright (C) 2016 Next Thing Co.
+ * Jose Angel Torres <software@nextthing.co>
+ * Andrew Hay Kurtz <software@nextthing.co>
+ * 
  * (C) Copyright 2012-2013 Henrik Nordstrom <henrik@henriknordstrom.net>
  * (C) Copyright 2013 Luke Kenneth Casson Leighton <lkcl@lkcl.net>
  *
@@ -21,6 +25,7 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/mmc.h>
 #include <asm/arch/usb_phy.h>
+#include <asm/arch-sunxi/pmic_bus.h>
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <nand.h>
@@ -436,10 +441,56 @@ void sunxi_board_init(void)
 {
 	int power_failed = 0;
 	unsigned long ramsize;
+	int rc;
+	bool powered = false, battery_connected = false;
 
 #if defined CONFIG_AXP152_POWER || defined CONFIG_AXP209_POWER || \
 	defined CONFIG_AXP221_POWER || defined CONFIG_AXP818_POWER
 	power_failed = axp_init();
+
+#ifdef CONFIG_AXP209_POWER
+	// read SRAM_VER_REG to determine if booted with U-Boot Button Pressed
+	unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
+
+	if( (*sram_ver_reg) & 0x0100) {
+		rc = axp_is_powered(&powered);
+		if (rc)
+			printf("Error determining Power-on Status");
+		if (powered) { // started by plugging in?
+			rc=axp_is_battery_connected(&battery_connected);
+			if (rc)
+				printf("Error determining if Battery is connected");
+			if ( battery_connected ) {
+				/* if there is a battery connected, shutdown */
+				printf("Started by plugging in while battery connected"
+				       " -> powering down again\n");
+				rc = axp_shutdown();
+				if (rc) {
+					printf("Error attempting to Shutdown!");
+					return;
+				}
+			}
+		}
+	} else {
+		printf("FEL Jumper Set!\n");
+	}
+
+	int fuel_gauge;
+	rc = axp_get_fuel_gauge(&fuel_gauge);
+	if (rc)
+		printf("Error reading Fuel Gauge");	
+
+	if (fuel_gauge != 0)
+		printf("Fuel Gauge: %i%%\n", fuel_gauge);
+
+	u16 batt_voltage;
+	rc = axp_get_battery_voltage(&batt_voltage);
+	if (rc)
+		printf("Error reading battery voltage");
+
+	printf("Battery Voltage: %imV\n", batt_voltage);
+
+#endif // CONFIG_AXP209_POWER
 
 #if defined CONFIG_AXP221_POWER || defined CONFIG_AXP818_POWER
 	power_failed |= axp_set_dcdc1(CONFIG_AXP_DCDC1_VOLT);

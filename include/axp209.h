@@ -1,11 +1,16 @@
 /*
- * (C) Copyright 2012 Henrik Nordstrom <henrik@henriknordstrom.net>
+ * (C) Copyright 2012
+ * Henrik Nordstrom <henrik@henriknordstrom.net>
+ *
+ * Copyright (C) 2016 Next Thing Co.
+ * Jose Angel Torres <software@nextthing.co>
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
 enum axp209_reg {
 	AXP209_POWER_STATUS = 0x00,
+	AXP209_POWER_MODE = 0x01,
 	AXP209_CHIP_VERSION = 0x03,
 	AXP209_OUTPUT_CTRL = 0x12,
 	AXP209_DCDC2_VOLTAGE = 0x23,
@@ -19,6 +24,11 @@ enum axp209_reg {
 	AXP209_IRQ_ENABLE5 = 0x44,
 	AXP209_IRQ_STATUS5 = 0x4c,
 	AXP209_SHUTDOWN = 0x32,
+	AXP209_FUEL_GAUGE = 0xB9,
+	AXP209_BATTERY_VOLTAGE_HIGH = 0x78,
+	AXP209_BATTERY_VOLTAGE_LOW = 0x79,
+	AXP209_VBUS_POWER_PATH = 0x30,
+	
 };
 
 #define AXP209_POWER_STATUS_ON_BY_DC	(1 << 0)
@@ -35,6 +45,10 @@ enum axp209_reg {
 #define AXP209_IRQ5_PEK_DOWN		(1 << 5)
 
 #define AXP209_POWEROFF			(1 << 7)
+
+#define AXP209_FUEL_GAUGE_CTRL          0x00
+
+#define AXP209_VBUS_NO_LIMIT            0x03
 
 /* For axp_gpio.c */
 #define AXP_POWER_STATUS		0x00
