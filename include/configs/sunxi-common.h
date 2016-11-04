@@ -547,7 +547,14 @@ extern int soft_i2c_gpio_scl;
 	BOOTCMD_SUNXI_COMPAT \
 	"usbnet_devaddr=de:ad:be:af:00:01\0" \
 	"mtdids=nand0=sunxi-nand.0\0" \
-	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),-(UBI)\0" \
+	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),32m(UBI)\0" \
+        "bootcmd_boot_ubi=run bootcmd_mount_ubi; run bootcmd_read_kernel; run bootcmd_read_initrd; run bootcmd_read_fdt; run bootcmd_boot_kernel\0" \
+        "bootcmd_boot_kernel=bootz $kernel_addr_r $ramdisk_addr_r $fdt_addr_r\0" \
+        "bootcmd_mount_ubi=ubi part UBI\0" \
+        "bootcmd_read_kernel=ubi read $kernel_addr_r kernel\0" \
+        "bootcmd_read_initrd=ubi read $ramdisk_addr_r initrd\0" \
+        "bootcmd_read_fdt=ubi read $fdt_addr_r fdt\0" \
+	"bootcmd=fastboot 0; run bootcmd_boot_ubi\0" \
 	BOOTENV
 
 #ifdef CONFIG_CHIPPRO_BOOT_FAST
@@ -557,7 +564,7 @@ extern int soft_i2c_gpio_scl;
         "bootcmd=run distro_bootcmd\0" \
         "bootcmd_boot_kernel=bootz 0x42000000 - 0x43000000\0" \
         "bootcmd_mount_ubi=ubi part UBI\0" \
-        "bootcmd_read_ubi=ubi read $kernel_addr_r kernel; ubi read $fdt_addr_r fdt\0
+        "bootcmd_read_ubi=ubi read $kernel_addr_r kernel; ubi read $fdt_addr_r fdt\0"
 
 #undef CONFIG_EXTRA_ENV_SETTINGS
 #define CONFIG_EXTRA_ENV_SETTINGS \
