@@ -547,7 +547,8 @@ extern int soft_i2c_gpio_scl;
 	BOOTCMD_SUNXI_COMPAT \
 	"usbnet_devaddr=de:ad:be:af:00:01\0" \
 	"mtdids=nand0=sunxi-nand.0\0" \
-	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),32m(UBI)\0" \
+	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),128m(UBI)\0" \
+        "bootargs=root=/dev/ram0 lpj=5009408 quiet ubi.fm_autoconvert=1\0" \
         "bootcmd_boot_ubi=run bootcmd_mount_ubi; run bootcmd_read_kernel; run bootcmd_read_initrd; run bootcmd_read_fdt; run bootcmd_boot_kernel\0" \
         "bootcmd_boot_kernel=bootz $kernel_addr_r $ramdisk_addr_r $fdt_addr_r\0" \
         "bootcmd_mount_ubi=ubi part UBI\0" \
@@ -577,7 +578,7 @@ extern int soft_i2c_gpio_scl;
 	BOOTCMD_SUNXI_COMPAT \
 	"usbnet_devaddr=de:ad:be:af:00:01\0" \
 	"mtdids=nand0=sunxi-nand.0\0" \
-	"mtdparts=mtdparts=sunxi-nand.0:256k(spl0),256k(spl1),256k(spl2),256k(spl3),256k(spl4),256k(spl5),256k(spl6),256k(spl7),64m(ubi\0" \
+	"mtdparts=mtdparts=sunxi-nand.0:256k(spl0),256k(spl1),256k(spl2),256k(spl3),256k(spl4),256k(spl5),256k(spl6),256k(spl7),64m(ubi)\0" \
 	"distro_bootcmd=for target in ${boot_targets}; do run bootcmd_${target}; done\0" \
 	"bootargs=lpj=5009408 quiet ubi.fm_autoconvert=1\0" \
 	"bootdelay=1\0" \
