@@ -463,8 +463,19 @@ void sunxi_board_init(void)
 			if ( battery_connected ) {
 				/* if there is a battery connected, shutdown */
 				printf("Started by plugging in while battery connected"
-				       " -> powering down again\n");
-				rc = axp_shutdown();
+				       " -> checking DIP\n");
+				
+				/* If not a PocketCHIP, don't power off*/
+				video_string = getenv("video-mode");
+				if (!strcmp(video_string, "sunxi:480x272-16@60,monitor=lcd")) {
+				    printf("Started by plugging in while battery connected"
+				       " -> powering down...\n");
+				    rc = axp_shutdown();
+			    } else {
+					printf("Started by plugging in while battery connected"
+				       " -> but device is not PocketCHIP. Continuing...\n");
+				}
+			    
 				if (rc) {
 					printf("Error attempting to Shutdown!");
 					return;
