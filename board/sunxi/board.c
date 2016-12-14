@@ -466,7 +466,8 @@ void sunxi_board_init(void)
 				       " -> checking DIP\n");
 				
 				/* If not a PocketCHIP, don't power off*/
-				video_string = getenv("video-mode");
+				char *video_string;
+                                video_string = getenv("video-mode");
 				if (!strcmp(video_string, "sunxi:480x272-16@60,monitor=lcd")) {
 				    printf("Started by plugging in while battery connected"
 				       " -> powering down...\n");
