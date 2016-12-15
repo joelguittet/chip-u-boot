@@ -552,7 +552,7 @@ extern int soft_i2c_gpio_scl;
         "bootcmd=run distro_bootcmd\0" \
         "bootcmd_boot_kernel=bootz 0x42000000 - 0x43000000\0" \
         "bootcmd_mount_ubi=ubi part UBI\0" \
-        "bootcmd_read_ubi=ubi read $kernel_addr_r kernel; ubi read $fdt_addr_r fdt\0
+        "bootcmd_read_ubi=ubi read $kernel_addr_r kernel; ubi read $fdt_addr_r fdt\0"
 
 #undef CONFIG_EXTRA_ENV_SETTINGS
 #define CONFIG_EXTRA_ENV_SETTINGS \
@@ -565,7 +565,7 @@ extern int soft_i2c_gpio_scl;
 	BOOTCMD_SUNXI_COMPAT \
 	"usbnet_devaddr=de:ad:be:af:00:01\0" \
 	"mtdids=nand0=sunxi-nand.0\0" \
-	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),16m(UBI)\0" \
+	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),-(UBI)\0" \
 	"distro_bootcmd=for target in ${boot_targets}; do run bootcmd_${target}; done\0" \
 	"bootargs=lpj=5009408 quiet ubi.fm_autoconvert=1\0" \
 	"bootdelay=1\0" \
