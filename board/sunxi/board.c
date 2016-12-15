@@ -452,6 +452,7 @@ void sunxi_board_init(void)
 	// read SRAM_VER_REG to determine if booted with U-Boot Button Pressed
 	unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
 
+#ifndef CONFIG_SPL_BUILD
 	if( (*sram_ver_reg) & 0x0100) {
 		rc = axp_is_powered(&powered);
 		if (rc)
@@ -486,6 +487,7 @@ void sunxi_board_init(void)
 	} else {
 		printf("FEL Jumper Set!\n");
 	}
+#endif
 
 	int fuel_gauge;
 	rc = axp_get_fuel_gauge(&fuel_gauge);
