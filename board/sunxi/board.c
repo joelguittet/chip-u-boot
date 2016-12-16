@@ -449,45 +449,6 @@ void sunxi_board_init(void)
 	power_failed = axp_init();
 
 #ifdef CONFIG_AXP209_POWER
-	// read SRAM_VER_REG to determine if booted with U-Boot Button Pressed
-	unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
-
-#ifndef CONFIG_SPL_BUILD
-	if( (*sram_ver_reg) & 0x0100) {
-		rc = axp_is_powered(&powered);
-		if (rc)
-			printf("Error determining Power-on Status");
-		if (powered) { // started by plugging in?
-			rc=axp_is_battery_connected(&battery_connected);
-			if (rc)
-				printf("Error determining if Battery is connected");
-			if ( battery_connected ) {
-				/* if there is a battery connected, shutdown */
-				printf("Started by plugging in while battery connected"
-				       " -> checking DIP\n");
-				
-				/* If not a PocketCHIP, don't power off*/
-				char *video_string;
-                                video_string = getenv("video-mode");
-				if (!strcmp(video_string, "sunxi:480x272-16@60,monitor=lcd")) {
-				    printf("Started by plugging in while battery connected"
-				       " -> powering down...\n");
-				    rc = axp_shutdown();
-			    } else {
-					printf("Started by plugging in while battery connected"
-				       " -> but device is not PocketCHIP. Continuing...\n");
-				}
-			    
-				if (rc) {
-					printf("Error attempting to Shutdown!");
-					return;
-				}
-			}
-		}
-	} else {
-		printf("FEL Jumper Set!\n");
-	}
-#endif
 
 	int fuel_gauge;
 	rc = axp_get_fuel_gauge(&fuel_gauge);
@@ -666,6 +627,48 @@ int ft_board_setup(void *blob, bd_t *bd)
 {
 	int ret = 0;
 #ifdef CONFIG_CHIP_DIP
+
+	int rc;
+	bool powered = false, battery_connected = false;
+
+	// read SRAM_VER_REG to determine if booted with U-Boot Button Pressed
+	unsigned int *sram_ver_reg = (unsigned int*)0x01c00024;
+
+	if( (*sram_ver_reg) & 0x0100) {
+		rc = axp_is_powered(&powered);
+		if (rc)
+			printf("Error determining Power-on Status");
+		if (powered) { // started by plugging in?
+			rc=axp_is_battery_connected(&battery_connected);
+			if (rc)
+				printf("Error determining if Battery is connected");
+			if ( battery_connected ) {
+				/* if there is a battery connected, shutdown */
+				printf("Started by plugging in while battery connected"
+				       " -> checking DIP\n");
+				
+				/* If not a PocketCHIP, don't power off*/
+				char *video_string;
+                video_string = getenv("video-mode");
+				if (!strcmp(video_string, "sunxi:480x272-16@60,monitor=lcd")) {
+				    printf("Started by plugging in while battery connected"
+				       " -> powering down...\n");
+				    rc = axp_shutdown();
+			    } else {
+					printf("Started by plugging in while battery connected"
+				       " -> but device is not PocketCHIP. Continuing...\n");
+				}
+			    
+				if (rc) {
+					printf("Error attempting to Shutdown!");
+					return;
+				}
+			}
+		}
+	} else {
+		printf("FEL Jumper Set!\n");
+	}
+
 	ret = chip_dip_dt_setup(blob);
 	if (ret)
 		return ret;
