@@ -549,7 +549,8 @@ extern int soft_i2c_gpio_scl;
 	"mtdids=nand0=sunxi-nand.0\0" \
 	"mtdparts=mtdparts=sunxi-nand.0:4m(spl),4m(spl-backup),4m(uboot),4m(env),-(UBI)\0" \
 	"boot_fel=if test -n \${scriptaddr}; then echo '(FEL boot)'; source \${scriptaddr}; fi\0" \
-	"bootcmd=run boot_fel\0" \
+	"preboot=run boot_fel\0" \
+	"bootcmd=fastboot 0\0" \
 	BOOTENV
 
 #ifdef CONFIG_CHIPPRO_BOOT_FAST
