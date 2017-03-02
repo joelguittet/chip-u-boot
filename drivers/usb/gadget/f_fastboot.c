@@ -414,9 +414,12 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 			strcpy(response, "FAILValue not set");
 	} else {
 		char envstr[32];
-
+		/* First look for a "fastboot." prefixed version */
 		snprintf(envstr, sizeof(envstr) - 1, "fastboot.%s", cmd);
 		s = getenv(envstr);
+		/* No variable with fastboot prefix, so try just reading the environment */
+		if (!s)
+			s = getenv(cmd);
 		if (s) {
 			strncat(response, s, chars_left);
 		} else {
