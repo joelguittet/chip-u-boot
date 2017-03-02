@@ -59,7 +59,8 @@
 
 #define CONFIG_CMDLINE_EDITING
 #define CONFIG_AUTO_COMPLETE
-#define CONFIG_BOOTDELAY     2
+/* hk made 0 for web flasher */
+#define CONFIG_BOOTDELAY     0
 #define CONFIG_SYS_LONGHELP
 #define CONFIG_MENU
 #define CONFIG_DOS_PARTITION
