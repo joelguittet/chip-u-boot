@@ -57,7 +57,9 @@ static struct f_fastboot *fastboot_func;
 static unsigned int fastboot_flash_session_id;
 static unsigned int download_size;
 static unsigned int download_bytes;
+static unsigned int copied_bytes;
 static bool is_high_speed;
+static int ignore_next_boot_command = 0;
 
 static struct usb_endpoint_descriptor fs_ep_in = {
 	.bLength            = USB_DT_ENDPOINT_SIZE,
@@ -448,8 +450,30 @@ static unsigned int rx_bytes_expected(unsigned int maxpacket)
 }
 
 #define BYTES_PER_DOT	0x20000
+
+static unsigned int skip_bytes = 0;
+static const unsigned char * image_in_buffer(const unsigned char * buf, int size) {
+	if (skip_bytes) {
+		if (size >= skip_bytes) {
+			const unsigned char * spot = buf + skip_bytes;
+			skip_bytes = 0;
+			return spot;
+		} else {
+			skip_bytes -= size;
+			return buf + size;
+		}
+	}
+	return buf;
+}
+
 static void rx_handler_dl_image(struct usb_ep *ep, struct usb_request *req)
 {
+	unsigned int download_address = CONFIG_FASTBOOT_BUF_ADDR; // default value
+	char * download_address_string = getenv("download_address");
+	if (download_address_string) {
+		download_address = (unsigned int)simple_strtoul(download_address_string, NULL, 16);
+	}
+
 	char response[FASTBOOT_RESPONSE_LEN];
 	unsigned int transfer_size = download_size - download_bytes;
 	const unsigned char *buffer = req->buf;
@@ -465,9 +489,11 @@ static void rx_handler_dl_image(struct usb_ep *ep, struct usb_request *req)
 	if (buffer_size < transfer_size)
 		transfer_size = buffer_size;
 
-	memcpy((void *)CONFIG_FASTBOOT_BUF_ADDR + download_bytes,
-	       buffer, transfer_size);
-
+	const unsigned char * spot = image_in_buffer(buffer, transfer_size);
+	int adjusted_len = transfer_size - (spot - buffer);
+	memcpy((void *)(download_address + copied_bytes),
+		   spot, adjusted_len);
+	copied_bytes += adjusted_len;
 	pre_dot_num = download_bytes / BYTES_PER_DOT;
 	download_bytes += transfer_size;
 	now_dot_num = download_bytes / BYTES_PER_DOT;
@@ -491,7 +517,7 @@ static void rx_handler_dl_image(struct usb_ep *ep, struct usb_request *req)
 		sprintf(response, "OKAY");
 		fastboot_tx_write_str(response);
 
-		printf("\ndownloading of %d bytes finished\n", download_bytes);
+		printf("\ndownloading of %d bytes to address %08x finished\n", download_bytes, download_address);
 	} else {
 		max = is_high_speed ? hs_ep_out.wMaxPacketSize :
 				fs_ep_out.wMaxPacketSize;
@@ -513,6 +539,7 @@ static void cb_download(struct usb_ep *ep, struct usb_request *req)
 	strsep(&cmd, ":");
 	download_size = simple_strtoul(cmd, NULL, 16);
 	download_bytes = 0;
+	copied_bytes = 0;
 
 	printf("Starting download of %d bytes\n", download_size);
 
@@ -532,14 +559,15 @@ static void cb_download(struct usb_ep *ep, struct usb_request *req)
 	}
 	fastboot_tx_write_str(response);
 }
-
 static void do_bootm_on_complete(struct usb_ep *ep, struct usb_request *req)
 {
+	if (ignore_next_boot_command) {
+		return;
+	}
 	char boot_addr_start[12];
 	char *bootm_args[] = { "bootm", boot_addr_start, NULL };
 
 	puts("Booting kernel..\n");
-
 	sprintf(boot_addr_start, "0x%lx", load_addr);
 	do_bootm(NULL, 0, 2, bootm_args);
 
@@ -607,7 +635,30 @@ static void cb_oem(struct usb_ep *ep, struct usb_request *req)
 			fastboot_tx_write_str("OKAY");
 	} else
 #endif
-	if (strncmp("unlock", cmd + 4, 8) == 0) {
+	if (!strncmp("set", cmd + 4, 3)) {
+		char * var = cmd + 8;
+		char * equals = strstr(var, "=");
+		if (equals) {
+			char variable[64];
+			strncpy(variable, var, equals-var); // extract the name
+			variable[equals-var] = '\0'; // null terminate
+			char * value = equals + 1;
+			setenv(variable,value); // put it in the environment
+			fastboot_tx_write_str("OKAY");
+		} else {
+			fastboot_tx_write_str("FAILinvalid syntax, Should be 'oem set variable=val'");
+		}
+	} else if (!strncmp("skip",cmd + 4, 4)) {
+		char * value = cmd + 9;
+		skip_bytes = (unsigned int)simple_strtoul(value, NULL, 10);
+		fastboot_tx_write_str("OKAY");
+	} else if (!strncmp("noboot",cmd + 4, 6)) {
+		ignore_next_boot_command = 1;
+		fastboot_tx_write_str("OKAY");
+	} else if (!strncmp("boot",cmd + 4, 4)) {
+		ignore_next_boot_command = 0;
+		fastboot_tx_write_str("OKAY");
+	} else if (strncmp("unlock", cmd + 4, 8) == 0) {
 		fastboot_tx_write_str("FAILnot implemented");
 	}
 	else {
